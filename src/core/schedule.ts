@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, resolve } from 'path'
 import { z } from 'zod'
-import { dataDir, schedulePath } from './paths.ts'
+import { scheduleJsonPath as getScheduleJsonPath, schedulePath } from './paths.ts'
 
 export const ScheduledJobSchema = z.object({
   name: z
@@ -27,7 +27,7 @@ export const defaultSchedule: Schedule = {
   ],
 }
 
-const scheduleJsonPath = (): string => resolve(dataDir(), 'schedule.json')
+const scheduleJsonPath = getScheduleJsonPath
 
 export const loadSchedule = (): Schedule => {
   const path = scheduleJsonPath()

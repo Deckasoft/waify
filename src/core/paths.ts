@@ -8,6 +8,8 @@ export const configPath = (): string => join(dataDir(), 'config.json')
 
 export const promptPath = (): string => join(dataDir(), 'prompt.json')
 
+export const scheduleJsonPath = (): string => join(dataDir(), 'schedule.json')
+
 export const schedulePath = (): string => join(dataDir(), 'ofelia.ini')
 
 export const logPath = (): string => join(dataDir(), 'messages.log')
