@@ -5,12 +5,27 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { createInterface } from 'readline'
 import * as crypto from 'crypto'
+import { z } from 'zod'
 import qrcode from 'qrcode-terminal'
 import { composePath, promptPath, scheduleJsonPath } from '../../core/paths.ts'
 import { loadConfig, saveConfig } from '../../core/config.ts'
 import { saveSecrets } from '../../core/secrets.ts'
 import { defaultSchedule, saveSchedule } from '../../core/schedule.ts'
 import { defaultPrompt, savePrompt } from '../../core/prompt.ts'
+
+const SessionResponseSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+})
+
+const QrResponseSchema = z.object({
+  qr: z.string().optional(),
+})
+
+const StatusResponseSchema = z.object({
+  status: z.string().optional(),
+  connected: z.boolean().optional(),
+})
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
@@ -111,10 +126,10 @@ export const registerSetup = (program: Command): void => {
         },
         body: JSON.stringify({ name: 'waify' }),
       })
-      const sessionData = (await sessionRes.json()) as Record<string, unknown>
+      const sessionData = SessionResponseSchema.parse(await sessionRes.json())
       const sessionId =
-        (sessionData['id'] as string | undefined) ??
-        (sessionData['sessionId'] as string | undefined) ??
+        sessionData.id ??
+        (sessionData.name as string | undefined) ??
         'waify'
       saveConfig({ ...loadConfig(), openwaApiKey, openwaSessionId: sessionId })
 
@@ -125,8 +140,8 @@ export const registerSetup = (program: Command): void => {
       const qrRes = await fetch('http://localhost:2785/api/sessions/waify/qr', {
         headers: { 'X-API-Key': openwaApiKey },
       })
-      const qrData = (await qrRes.json()) as Record<string, unknown>
-      const rawQr = (qrData['qr'] as string | undefined) ?? ''
+      const qrData = QrResponseSchema.parse(await qrRes.json())
+      const rawQr = qrData.qr ?? ''
       const qrString = rawQr.startsWith('data:image/png;base64,')
         ? rawQr.slice('data:image/png;base64,'.length)
         : rawQr
@@ -140,10 +155,12 @@ export const registerSetup = (program: Command): void => {
           const statusRes = await fetch('http://localhost:2785/api/sessions/waify', {
             headers: { 'X-API-Key': openwaApiKey },
           })
-          const statusData = (await statusRes.json()) as Record<string, unknown>
+          const parsed = StatusResponseSchema.safeParse(await statusRes.json())
+          if (!parsed.success) continue
+          const statusData = parsed.data
           if (
-            statusData['status'] === 'CONNECTED' ||
-            statusData['connected'] === true
+            statusData.status === 'CONNECTED' ||
+            statusData.connected === true
           ) {
             connected = true
             break
@@ -161,34 +178,36 @@ export const registerSetup = (program: Command): void => {
 
       // Step 9 — Prompt for Gemini API key
       const rl = createInterface({ input: process.stdin, output: process.stdout })
-
-      let geminiKey = ''
-      while (!geminiKey.trim()) {
-        geminiKey = await promptLine(
-          rl,
-          'Enter your Gemini API key (get one free at https://aistudio.google.com/apikey):\n> ',
-        )
-        if (!geminiKey.trim()) {
-          console.warn('Gemini API key cannot be empty. Please try again.')
+      try {
+        let geminiKey = ''
+        while (!geminiKey.trim()) {
+          geminiKey = await promptLine(
+            rl,
+            'Enter your Gemini API key (get one free at https://aistudio.google.com/apikey):\n> ',
+          )
+          if (!geminiKey.trim()) {
+            console.warn('Gemini API key cannot be empty. Please try again.')
+          }
         }
-      }
-      saveSecrets({ GEMINI_API_KEY: geminiKey.trim() })
+        saveSecrets({ GEMINI_API_KEY: geminiKey.trim() })
 
-      // Step 10 — Prompt for recipient
-      let recipientNumber = ''
-      const phoneRegex = /^\d{8,15}$/
-      while (!phoneRegex.test(recipientNumber.trim())) {
-        recipientNumber = await promptLine(
-          rl,
-          "Enter your recipient's WhatsApp number (e.g. 5511999998888 — digits only, no + or spaces):\n> ",
-        )
-        if (!phoneRegex.test(recipientNumber.trim())) {
-          console.warn('Invalid number format. Use digits only, 8–15 characters. Please try again.')
+        // Step 10 — Prompt for recipient
+        let recipientNumber = ''
+        const phoneRegex = /^\d{8,15}$/
+        while (!phoneRegex.test(recipientNumber.trim())) {
+          recipientNumber = await promptLine(
+            rl,
+            "Enter your recipient's WhatsApp number (e.g. 5511999998888 — digits only, no + or spaces):\n> ",
+          )
+          if (!phoneRegex.test(recipientNumber.trim())) {
+            console.warn('Invalid number format. Use digits only, 8–15 characters. Please try again.')
+          }
         }
+        const chatId = `${recipientNumber.trim()}@c.us`
+        saveConfig({ ...loadConfig(), recipients: [{ chatId }] })
+      } finally {
+        rl.close()
       }
-      rl.close()
-      const chatId = `${recipientNumber.trim()}@c.us`
-      saveConfig({ ...loadConfig(), recipients: [{ chatId }] })
 
       // Step 11 — Seed defaults
       if (!existsSync(promptPath())) {
