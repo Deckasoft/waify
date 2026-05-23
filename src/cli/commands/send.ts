@@ -20,7 +20,7 @@ export const registerSend = (program: Command): void => {
           baseUrl: config.openwaBaseUrl,
           apiKey: secrets.OPENWA_API_KEY,
           sessionId: config.openwaSessionId ?? '',
-          chatId: config.recipients[0].chatId,
+          chatId: config.recipients[0]?.chatId ?? '',
           text,
         })
         log('sent', text.slice(0, 80))

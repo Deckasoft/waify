@@ -38,7 +38,8 @@ export const assertConfigReady = (config: Config): void => {
   if (!config.openwaSessionId) {
     throw new Error('openwaSessionId is not set. Run `waify config set openwaSessionId <id>` or use the TUI.')
   }
-  if (config.recipients.length === 0 || !config.recipients[0].chatId) {
+  const [recipient] = config.recipients
+  if (!recipient?.chatId) {
     throw new Error('Run `waify setup` to configure a recipient')
   }
 }
