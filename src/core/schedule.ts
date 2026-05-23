@@ -22,8 +22,8 @@ export type Schedule = z.infer<typeof ScheduleSchema>
 
 export const defaultSchedule: Schedule = {
   jobs: [
-    { name: 'wife-morning', schedule: '0 9 * * *', command: 'send' },
-    { name: 'wife-evening', schedule: '0 19 * * *', command: 'send' },
+    { name: 'wife-morning', schedule: '0 0 9 * * *', command: 'send' },
+    { name: 'wife-evening', schedule: '0 0 19 * * *', command: 'send' },
   ],
 }
 
