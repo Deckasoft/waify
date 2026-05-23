@@ -10,3 +10,4 @@ data/messages.log
 # Legacy log paths (kept for safety if anyone still has them)
 messages.log
 cron-errors.log
+ofellia.ini
