@@ -5,18 +5,27 @@ const MessageResponseSchema = z.object({
   timestamp: z.number(),
 })
 
-export const sendMessage = async (chatId: string, text: string): Promise<void> => {
-  const baseUrl = process.env['OPENWA_BASE_URL']
-  const apiKey = process.env['OPENWA_API_KEY']
+export type SendMessageArgs = {
+  baseUrl: string
+  apiKey: string
+  sessionId: string
+  chatId: string
+  text: string
+}
 
-  const sessionId = process.env['OPENWA_SESSION_ID']
+export const sendMessage = async ({
+  baseUrl,
+  apiKey,
+  sessionId,
+  chatId,
+  text,
+}: SendMessageArgs): Promise<void> => {
   const url = `${baseUrl}/api/sessions/${sessionId}/messages/send-text`
-
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-API-Key': apiKey ?? '',
+      'X-API-Key': apiKey,
     },
     body: JSON.stringify({ chatId, text }),
   })

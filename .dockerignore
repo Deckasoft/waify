@@ -1,0 +1,11 @@
+node_modules
+dist
+data/messages.log
+data/config.json
+data/schedule.json
+.env
+.git
+.gitignore
+*.log
+tests
+vitest.config.ts

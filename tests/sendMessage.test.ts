@@ -3,12 +3,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
+const baseArgs = {
+  baseUrl: 'http://localhost:2785',
+  apiKey: 'test-api-key',
+  sessionId: 'test-session-id',
+  chatId: '521234567890@c.us',
+  text: 'Hola amor',
+}
+
 describe('sendMessage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env['OPENWA_BASE_URL'] = 'http://localhost:2785'
-    process.env['OPENWA_API_KEY'] = 'test-api-key'
-    process.env['OPENWA_SESSION_ID'] = 'test-session-id'
   })
 
   it('POSTs to the correct URL with the right headers and body', async () => {
@@ -17,8 +22,8 @@ describe('sendMessage', () => {
       json: async () => ({ messageId: 'abc123', timestamp: 1234567890 }),
     })
 
-    const { sendMessage } = await import('../src/sendMessage.ts')
-    await sendMessage('521234567890@c.us', 'Hola amor')
+    const { sendMessage } = await import('../src/core/sender.ts')
+    await sendMessage(baseArgs)
 
     expect(mockFetch).toHaveBeenCalledOnce()
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
@@ -40,8 +45,8 @@ describe('sendMessage', () => {
       text: async () => 'Session not active',
     })
 
-    const { sendMessage } = await import('../src/sendMessage.ts')
-    await expect(sendMessage('123@c.us', 'hi')).rejects.toThrow('400')
+    const { sendMessage } = await import('../src/core/sender.ts')
+    await expect(sendMessage(baseArgs)).rejects.toThrow('400')
   })
 
   it('throws when the response body does not match the schema', async () => {
@@ -50,7 +55,7 @@ describe('sendMessage', () => {
       json: async () => ({ unexpected: 'shape' }),
     })
 
-    const { sendMessage } = await import('../src/sendMessage.ts')
-    await expect(sendMessage('123@c.us', 'hi')).rejects.toThrow()
+    const { sendMessage } = await import('../src/core/sender.ts')
+    await expect(sendMessage(baseArgs)).rejects.toThrow()
   })
 })
