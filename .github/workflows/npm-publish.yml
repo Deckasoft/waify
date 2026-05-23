@@ -20,6 +20,15 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - name: Check auth token
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "ERROR: NODE_AUTH_TOKEN is empty — NPM_TOKEN secret is missing or empty"
+          else
+            echo "OK: NODE_AUTH_TOKEN is set (${#NODE_AUTH_TOKEN} chars)"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
