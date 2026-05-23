@@ -63,11 +63,11 @@ export const registerInit = (program: Command): void => {
       console.warn('  1. Ensure .env has GEMINI_API_KEY and OPENWA_API_KEY')
       if (!migration.changed) {
         console.warn('  2. Set the runtime values:')
-        console.warn('     wife config set openwaSessionId <uuid from openwa dashboard>')
-        console.warn('     wife config set wifeChatId <countrycode+number>@c.us')
+        console.warn('     waify config set openwaSessionId <uuid from openwa dashboard>')
+        console.warn('     waify config set wifeChatId <countrycode+number>@c.us')
       } else {
-        console.warn('  2. Verify migrated values: wife config list')
+        console.warn('  2. Verify migrated values: waify config list')
       }
-      console.warn('  3. Test with `wife preview`, then `wife send`')
+      console.warn('  3. Test with `waify preview`, then `waify send`')
     })
 }
