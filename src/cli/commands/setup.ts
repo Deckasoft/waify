@@ -126,11 +126,11 @@ export const registerSetup = (program: Command): void => {
         },
         body: JSON.stringify({ name: 'waify' }),
       })
+      if (!sessionRes.ok) {
+        throw new Error(`Failed to create session: ${sessionRes.status} ${sessionRes.statusText}`)
+      }
       const sessionData = SessionResponseSchema.parse(await sessionRes.json())
-      const sessionId =
-        sessionData.id ??
-        (sessionData.name as string | undefined) ??
-        'waify'
+      const sessionId = sessionData.id ?? sessionData.name ?? 'waify'
       saveConfig({ ...loadConfig(), openwaApiKey, openwaSessionId: sessionId })
 
       // Step 8 — Display QR and poll for connection
@@ -140,7 +140,10 @@ export const registerSetup = (program: Command): void => {
       const qrRes = await fetch('http://localhost:2785/api/sessions/waify/qr', {
         headers: { 'X-API-Key': openwaApiKey },
       })
-      const qrData = QrResponseSchema.parse(await qrRes.json())
+      if (!qrRes.ok) {
+        console.warn('   Could not fetch QR code — use the browser link below.')
+      }
+      const qrData = qrRes.ok ? QrResponseSchema.parse(await qrRes.json()) : { qr: undefined }
       const rawQr = qrData.qr ?? ''
       const qrString = rawQr.startsWith('data:image/png;base64,')
         ? rawQr.slice('data:image/png;base64,'.length)

@@ -14,7 +14,7 @@ export const ConfigSchema = z.object({
   openwaBaseUrl: z.string().url().default('http://localhost:2785'),
   openwaSessionId: z.string().nullable().default(null),
   openwaApiKey: z.string().nullable().default(null),
-  recipients: z.array(RecipientSchema).min(1).max(1).default([]),
+  recipients: z.array(RecipientSchema).max(1).default([]),
 })
 
 export type Config = z.infer<typeof ConfigSchema>

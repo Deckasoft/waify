@@ -52,7 +52,7 @@ export type OfeliaRuntime = {
 
 const ofeliaRuntime = (): OfeliaRuntime => ({
   image: process.env['WAIFY_SENDER_IMAGE'] ?? 'openwa-scripts-sender:latest',
-  network: process.env['WAIFY_NETWORK'] ?? 'openwa-network',
+  network: process.env['WAIFY_NETWORK'] ?? 'waify-network',
   hostDataDir: process.env['WAIFY_HOST_DATA_DIR'] ?? resolve(process.cwd(), 'data'),
   hostEnvFile: process.env['WAIFY_HOST_ENV_FILE'] ?? resolve(process.cwd(), '.env'),
 })

@@ -8,7 +8,7 @@ import { defaultSchedule, saveSchedule } from '../../core/schedule.ts'
 const migrateLegacyEnv = (): { changed: boolean; config: ReturnType<typeof defaultConfig> } => {
   const base = defaultConfig()
   const legacySessionId = process.env['OPENWA_SESSION_ID']
-  const legacyChatId = process.env['WAIFY_CHAT_ID']
+  const legacyChatId = process.env['WIFE_CHAT_ID']
 
   const recipients =
     legacyChatId
