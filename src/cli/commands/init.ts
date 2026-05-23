@@ -9,7 +9,7 @@ const migrateLegacyEnv = (): { changed: boolean; config: ReturnType<typeof defau
   const base = defaultConfig()
   // Migrate only user-specific identifiers. openwaBaseUrl defaults to the
   // in-Docker hostname (http://openwa-api:2785) — override with
-  // `wife config set openwaBaseUrl http://localhost:2785` for local dev.
+  // `waify config set openwaBaseUrl http://localhost:2785` for local dev.
   const legacy = {
     openwaSessionId: process.env['OPENWA_SESSION_ID'],
     wifeChatId: process.env['WAIFY_CHAT_ID'],

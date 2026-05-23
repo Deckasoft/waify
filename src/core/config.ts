@@ -28,9 +28,9 @@ export const saveConfig = (config: Config): void => {
 
 export const assertConfigReady = (config: Config): void => {
   if (!config.openwaSessionId) {
-    throw new Error('openwaSessionId is not set. Run `wife config set openwaSessionId <id>` or use the TUI.')
+    throw new Error('openwaSessionId is not set. Run `waify config set openwaSessionId <id>` or use the TUI.')
   }
   if (!config.wifeChatId) {
-    throw new Error('wifeChatId is not set. Run `wife config set wifeChatId <id>` or use the TUI.')
+    throw new Error('wifeChatId is not set. Run `waify config set wifeChatId <id>` or use the TUI.')
   }
 }

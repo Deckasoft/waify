@@ -15,7 +15,7 @@ include:
 
 services:
   # On-demand CLI/TUI container. Profile-gated so `docker compose up` does NOT
-  # start it; use `docker compose run --rm sender ...` or the bin/wife wrapper.
+  # start it; use `docker compose run --rm sender ...`.
   sender:
     build:
       context: .
