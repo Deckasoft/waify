@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { Command } from 'commander'
 import { registerInit } from './commands/init.ts'
+import { registerSetup } from './commands/setup.ts'
 import { registerSend } from './commands/send.ts'
 import { registerPreview } from './commands/preview.ts'
 import { registerHistory } from './commands/history.ts'
@@ -17,6 +18,7 @@ program
   .version('0.1.0')
 
 registerInit(program)
+registerSetup(program)
 registerSend(program)
 registerPreview(program)
 registerHistory(program)
