@@ -1,0 +1,14 @@
+data/
+bin/
+docker-compose.yml
+Dockerfile
+*.ini
+*.ini.example
+.env
+.env.*
+tests/
+src/
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+CLAUDE.md

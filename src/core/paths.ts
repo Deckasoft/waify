@@ -1,17 +1,20 @@
-import { resolve } from 'path'
-import { fileURLToPath } from 'url'
+import { join } from 'path'
+import { homedir } from 'os'
 
-const REPO_ROOT = resolve(fileURLToPath(import.meta.url), '../../../')
+const dataDir = (): string =>
+  process.env['WAIFY_DATA_DIR'] ?? join(homedir(), '.config', 'waify')
 
-export const dataDir = (): string => process.env['WIFE_DATA_DIR'] ?? resolve(REPO_ROOT, 'data')
+export const configPath = (): string => join(dataDir(), 'config.json')
 
-export const configPath = (): string => resolve(dataDir(), 'config.json')
+export const promptPath = (): string => join(dataDir(), 'prompt.json')
 
-export const promptPath = (): string => resolve(dataDir(), 'prompt.json')
+export const scheduleJsonPath = (): string => join(dataDir(), 'schedule.json')
 
-export const schedulePath = (): string => resolve(dataDir(), 'ofelia.ini')
+export const schedulePath = (): string => join(dataDir(), 'ofelia.ini')
 
-export const logPath = (): string => resolve(dataDir(), 'messages.log')
+export const logPath = (): string => join(dataDir(), 'messages.log')
 
 export const envPath = (): string =>
-  process.env['WIFE_ENV_PATH'] ?? resolve(REPO_ROOT, '.env')
+  process.env['WAIFY_ENV_PATH'] ?? join(dataDir(), '.env')
+
+export const composePath = (): string => join(dataDir(), 'docker-compose.yml')

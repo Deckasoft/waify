@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { loadConfig, assertConfigReady } from '../../core/config.ts'
 import { tryLoadSecrets } from '../../core/secrets.ts'
 import { loadPrompt, generateMessage } from '../../core/prompt.ts'
+import { createGeminiProvider } from '../../core/providers/gemini.ts'
 import { sendMessage } from '../../core/sender.ts'
 import { log, readHistory } from '../../core/logger.ts'
 import { loadSchedule } from '../../core/schedule.ts'
@@ -25,7 +26,7 @@ export const Home = () => {
   const lastSent = history[0]
 
   const hasSecrets = Boolean(secrets.GEMINI_API_KEY && secrets.OPENWA_API_KEY)
-  const hasConfig = Boolean(cfg.openwaSessionId && cfg.wifeChatId)
+  const hasConfig = Boolean(cfg.openwaSessionId && cfg.recipients[0]?.chatId)
 
   const doPreview = async () => {
     if (!secrets.GEMINI_API_KEY) {
@@ -35,7 +36,8 @@ export const Home = () => {
     setState({ kind: 'busy', label: 'Generating preview' })
     try {
       const prompt = loadPrompt()
-      const text = await generateMessage({ apiKey: secrets.GEMINI_API_KEY, prompt })
+      const provider = createGeminiProvider({ apiKey: secrets.GEMINI_API_KEY })
+      const text = await generateMessage({ provider, prompt })
       setState({ kind: 'preview', text })
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
@@ -56,12 +58,13 @@ export const Home = () => {
     setState({ kind: 'busy', label: 'Generating + sending' })
     try {
       const prompt = loadPrompt()
-      const text = await generateMessage({ apiKey: secrets.GEMINI_API_KEY ?? '', prompt })
+      const provider = createGeminiProvider({ apiKey: secrets.GEMINI_API_KEY ?? '' })
+      const text = await generateMessage({ provider, prompt })
       await sendMessage({
         baseUrl: cfg.openwaBaseUrl,
         apiKey: secrets.OPENWA_API_KEY ?? '',
         sessionId: cfg.openwaSessionId ?? '',
-        chatId: cfg.wifeChatId ?? '',
+        chatId: cfg.recipients[0]?.chatId ?? '',
         text,
       })
       log('sent', text.slice(0, 80))

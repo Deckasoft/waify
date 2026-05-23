@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname } from 'path'
 import { z } from 'zod'
-import { GoogleGenAI } from '@google/genai'
+import type { AIProvider } from './providers/types.ts'
 import { promptPath } from './paths.ts'
 
 export const PromptSchema = z.object({
@@ -43,34 +43,10 @@ export const savePrompt = (prompt: Prompt): void => {
   writeFileSync(path, JSON.stringify(prompt, null, 2) + '\n', 'utf-8')
 }
 
-const composeSystemInstruction = (prompt: Prompt): string => {
-  const exampleLines = prompt.examples.map((e) => `- "${e}"`).join('\n')
-  return [
-    prompt.systemPrompt,
-    '',
-    'Here are examples of the exact tone and style to match:',
-    exampleLines,
-    '',
-    'Output only the message text — no quotes, no labels, no explanations.',
-  ].join('\n')
-}
-
 export type GenerateMessageArgs = {
-  apiKey: string
+  provider: AIProvider
   prompt: Prompt
 }
 
-export const generateMessage = async ({ apiKey, prompt }: GenerateMessageArgs): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey })
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: 'Send the message.',
-    config: { systemInstruction: composeSystemInstruction(prompt) },
-  })
-
-  const text = response.text
-  if (!text) {
-    throw new Error('Unexpected empty response from Gemini')
-  }
-  return text.trim()
-}
+export const generateMessage = async ({ provider, prompt }: GenerateMessageArgs): Promise<string> =>
+  provider.generateMessage(prompt.systemPrompt, prompt.examples)

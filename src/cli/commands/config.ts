@@ -3,7 +3,12 @@ import { ConfigSchema, loadConfig, saveConfig } from '../../core/config.ts'
 import { SecretsSchema, saveSecrets, tryLoadSecrets } from '../../core/secrets.ts'
 
 const SECRET_KEYS = new Set(Object.keys(SecretsSchema.shape))
-const CONFIG_KEYS = new Set(Object.keys(ConfigSchema.shape))
+// Exclude 'recipients' from the flat key list — it's a structured array.
+// Expose it via the alias 'wifeChatId' for backward compat.
+const CONFIG_KEYS = new Set(Object.keys(ConfigSchema.shape).filter((k) => k !== 'recipients'))
+
+// Alias: 'wifeChatId' sets recipients[0].chatId
+const ALIAS_KEYS = new Set(['wifeChatId'])
 
 export const registerConfig = (program: Command): void => {
   const config = program.command('config').description('Inspect or update settings')
@@ -17,7 +22,12 @@ export const registerConfig = (program: Command): void => {
 
       console.warn('# config.json')
       Object.entries(cfg).forEach(([k, v]) => {
-        console.warn(`  ${k} = ${v ?? '(unset)'}`)
+        if (k === 'recipients') {
+          const chatId = cfg.recipients[0]?.chatId ?? '(unset)'
+          console.warn(`  recipients[0].chatId = ${chatId}`)
+        } else {
+          console.warn(`  ${k} = ${v ?? '(unset)'}`)
+        }
       })
       console.warn('\n# .env (secrets)')
       Array.from(SECRET_KEYS).forEach((k) => {
@@ -37,13 +47,19 @@ export const registerConfig = (program: Command): void => {
         process.stdout.write((v ?? '') + '\n')
         return
       }
+      if (ALIAS_KEYS.has(key)) {
+        const cfg = loadConfig()
+        process.stdout.write((cfg.recipients[0]?.chatId ?? '') + '\n')
+        return
+      }
       if (CONFIG_KEYS.has(key)) {
         const cfg = loadConfig()
         const v = cfg[key as keyof typeof cfg]
         process.stdout.write((v ?? '') + '\n')
         return
       }
-      throw new Error(`Unknown key: ${key}. Known keys: ${[...CONFIG_KEYS, ...SECRET_KEYS].join(', ')}`)
+      const knownKeys = [...CONFIG_KEYS, ...ALIAS_KEYS, ...SECRET_KEYS]
+      throw new Error(`Unknown key: ${key}. Known keys: ${knownKeys.join(', ')}`)
     })
 
   config
@@ -55,6 +71,18 @@ export const registerConfig = (program: Command): void => {
         console.warn(`updated secret: ${key}`)
         return
       }
+      if (ALIAS_KEYS.has(key)) {
+        // wifeChatId alias → recipients[0].chatId
+        const cfg = loadConfig()
+        const existing = cfg.recipients[0]
+        const next = ConfigSchema.parse({
+          ...cfg,
+          recipients: [{ ...existing, chatId: value }],
+        })
+        saveConfig(next)
+        console.warn(`updated config: recipients[0].chatId = ${value}`)
+        return
+      }
       if (CONFIG_KEYS.has(key)) {
         const cfg = loadConfig()
         const next = ConfigSchema.parse({ ...cfg, [key]: value })
@@ -62,6 +90,7 @@ export const registerConfig = (program: Command): void => {
         console.warn(`updated config: ${key} = ${value}`)
         return
       }
-      throw new Error(`Unknown key: ${key}. Known keys: ${[...CONFIG_KEYS, ...SECRET_KEYS].join(', ')}`)
+      const knownKeys = [...CONFIG_KEYS, ...ALIAS_KEYS, ...SECRET_KEYS]
+      throw new Error(`Unknown key: ${key}. Known keys: ${knownKeys.join(', ')}`)
     })
 }
