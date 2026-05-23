@@ -18,7 +18,9 @@ describe('generateMessage', () => {
     mockGenerateContent.mockResolvedValue({ text: '  ¡Hoy es un gran día para ti!  ' })
 
     const { generateMessage } = await import('../src/core/prompt.ts')
-    const result = await generateMessage({ apiKey: 'test-key', prompt: defaultPrompt })
+    const { createGeminiProvider } = await import('../src/core/providers/gemini.ts')
+    const provider = createGeminiProvider({ apiKey: 'test-key' })
+    const result = await generateMessage({ provider, prompt: defaultPrompt })
 
     expect(result).toBe('¡Hoy es un gran día para ti!')
 
@@ -33,13 +35,17 @@ describe('generateMessage', () => {
     mockGenerateContent.mockResolvedValue({ text: '' })
 
     const { generateMessage } = await import('../src/core/prompt.ts')
-    await expect(generateMessage({ apiKey: 'k', prompt: defaultPrompt })).rejects.toThrow('Unexpected empty response')
+    const { createGeminiProvider } = await import('../src/core/providers/gemini.ts')
+    const provider = createGeminiProvider({ apiKey: 'k' })
+    await expect(generateMessage({ provider, prompt: defaultPrompt })).rejects.toThrow('Unexpected empty response')
   })
 
   it('throws when the API call fails', async () => {
     mockGenerateContent.mockRejectedValue(new Error('API error'))
 
     const { generateMessage } = await import('../src/core/prompt.ts')
-    await expect(generateMessage({ apiKey: 'k', prompt: defaultPrompt })).rejects.toThrow('API error')
+    const { createGeminiProvider } = await import('../src/core/providers/gemini.ts')
+    const provider = createGeminiProvider({ apiKey: 'k' })
+    await expect(generateMessage({ provider, prompt: defaultPrompt })).rejects.toThrow('API error')
   })
 })

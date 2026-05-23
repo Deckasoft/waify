@@ -2,6 +2,7 @@ import type { Command } from 'commander'
 import { assertConfigReady, loadConfig } from '../../core/config.ts'
 import { loadSecrets } from '../../core/secrets.ts'
 import { loadPrompt, generateMessage } from '../../core/prompt.ts'
+import { createGeminiProvider } from '../../core/providers/gemini.ts'
 import { sendMessage } from '../../core/sender.ts'
 import { log } from '../../core/logger.ts'
 
@@ -15,7 +16,8 @@ export const registerSend = (program: Command): void => {
         const config = loadConfig()
         assertConfigReady(config)
         const prompt = loadPrompt()
-        const text = await generateMessage({ apiKey: secrets.GEMINI_API_KEY, prompt })
+        const provider = createGeminiProvider({ apiKey: secrets.GEMINI_API_KEY })
+        const text = await generateMessage({ provider, prompt })
         await sendMessage({
           baseUrl: config.openwaBaseUrl,
           apiKey: secrets.OPENWA_API_KEY,
