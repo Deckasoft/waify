@@ -23,7 +23,7 @@ services:
     container_name: wife-sender
     profiles: [tools]
     environment:
-      - WIFE_DATA_DIR=/data
+      - WAIFY_DATA_DIR=/data
     env_file:
       - .env
     volumes:

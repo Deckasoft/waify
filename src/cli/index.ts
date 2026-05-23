@@ -12,9 +12,9 @@ import { registerTui } from './commands/tui.ts'
 const program = new Command()
 
 program
-  .name('wife')
-  .description('Generate and send a daily mood-lifter message to your partner via WhatsApp')
-  .version('2.0.0')
+  .name('waify')
+  .description('AI-powered daily message sender for WhatsApp')
+  .version('0.1.0')
 
 registerInit(program)
 registerSend(program)

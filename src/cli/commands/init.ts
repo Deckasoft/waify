@@ -12,7 +12,7 @@ const migrateLegacyEnv = (): { changed: boolean; config: ReturnType<typeof defau
   // `wife config set openwaBaseUrl http://localhost:2785` for local dev.
   const legacy = {
     openwaSessionId: process.env['OPENWA_SESSION_ID'],
-    wifeChatId: process.env['WIFE_CHAT_ID'],
+    wifeChatId: process.env['WAIFY_CHAT_ID'],
   }
   const next = ConfigSchema.parse({
     openwaBaseUrl: base.openwaBaseUrl,

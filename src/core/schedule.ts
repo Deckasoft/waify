@@ -51,10 +51,10 @@ export type OfeliaRuntime = {
 }
 
 const ofeliaRuntime = (): OfeliaRuntime => ({
-  image: process.env['WIFE_SENDER_IMAGE'] ?? 'openwa-scripts-sender:latest',
-  network: process.env['WIFE_NETWORK'] ?? 'openwa-network',
-  hostDataDir: process.env['WIFE_HOST_DATA_DIR'] ?? resolve(process.cwd(), 'data'),
-  hostEnvFile: process.env['WIFE_HOST_ENV_FILE'] ?? resolve(process.cwd(), '.env'),
+  image: process.env['WAIFY_SENDER_IMAGE'] ?? 'openwa-scripts-sender:latest',
+  network: process.env['WAIFY_NETWORK'] ?? 'openwa-network',
+  hostDataDir: process.env['WAIFY_HOST_DATA_DIR'] ?? resolve(process.cwd(), 'data'),
+  hostEnvFile: process.env['WAIFY_HOST_ENV_FILE'] ?? resolve(process.cwd(), '.env'),
 })
 
 const renderJob = (job: ScheduledJob, runtime: OfeliaRuntime): string =>

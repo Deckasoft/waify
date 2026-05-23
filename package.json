@@ -1,17 +1,24 @@
 {
-  "name": "openwa-scripts",
-  "version": "1.0.0",
+  "name": "waify",
+  "version": "0.1.0",
+  "description": "AI-powered daily message sender for WhatsApp, powered by OpenWA",
+  "keywords": ["whatsapp", "ai", "gemini", "openwa", "cli", "automation", "messaging"],
+  "homepage": "https://github.com/deckasoft/waify",
+  "repository": { "type": "git", "url": "https://github.com/deckasoft/waify.git" },
+  "license": "MIT",
   "type": "module",
+  "files": ["dist/"],
   "bin": {
-    "wife": "./dist/cli/index.js"
+    "waify": "./dist/cli/index.js"
   },
   "scripts": {
-    "wife": "tsx src/cli/index.ts",
+    "waify": "tsx src/cli/index.ts",
     "send": "tsx src/cli/index.ts send",
     "tui": "tsx src/cli/index.ts tui",
     "build": "tsup",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "@google/genai": "^2.6.0",
