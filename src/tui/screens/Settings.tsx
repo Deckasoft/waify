@@ -7,7 +7,7 @@ import { SecretsSchema, saveSecrets, tryLoadSecrets } from '../../core/secrets.t
 type Field = {
   key: string
   label: string
-  group: 'config' | 'secret'
+  group: 'config' | 'secret' | 'recipient'
   value: string
   secret: boolean
 }
@@ -18,7 +18,8 @@ const buildFields = (): Field[] => {
   return [
     { key: 'openwaBaseUrl', label: 'openwaBaseUrl', group: 'config', value: cfg.openwaBaseUrl, secret: false },
     { key: 'openwaSessionId', label: 'openwaSessionId', group: 'config', value: cfg.openwaSessionId ?? '', secret: false },
-    { key: 'wifeChatId', label: 'wifeChatId', group: 'config', value: cfg.wifeChatId ?? '', secret: false },
+    { key: 'openwaApiKey', label: 'openwaApiKey', group: 'config', value: cfg.openwaApiKey ?? '', secret: false },
+    { key: 'recipientChatId', label: 'recipients[0].chatId', group: 'recipient', value: cfg.recipients[0]?.chatId ?? '', secret: false },
     { key: 'GEMINI_API_KEY', label: 'GEMINI_API_KEY', group: 'secret', value: secrets.GEMINI_API_KEY ?? '', secret: true },
     { key: 'OPENWA_API_KEY', label: 'OPENWA_API_KEY', group: 'secret', value: secrets.OPENWA_API_KEY ?? '', secret: true },
   ]
@@ -65,13 +66,21 @@ export const Settings = ({ onFocusChange }: Props) => {
       if (field.group === 'secret') {
         const parsed = SecretsSchema.partial().parse({ [field.key]: value })
         saveSecrets(parsed)
+      } else if (field.group === 'recipient') {
+        const cfg = loadConfig()
+        const existing = cfg.recipients[0]
+        const next = ConfigSchema.parse({
+          ...cfg,
+          recipients: [{ ...existing, chatId: value }],
+        })
+        saveConfig(next)
       } else {
         const cfg = loadConfig()
         const next = ConfigSchema.parse({ ...cfg, [field.key]: value || null })
         saveConfig(next)
       }
       setFields(buildFields())
-      setMessage(`saved ${field.key}`)
+      setMessage(`saved ${field.label}`)
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err))
     }
@@ -92,7 +101,7 @@ export const Settings = ({ onFocusChange }: Props) => {
       <Box marginTop={1} flexDirection="column">
         {fields.map((f, i) => (
           <Box key={f.key}>
-            <Box width={20}>
+            <Box width={24}>
               <Text color={i === cursor ? 'cyan' : undefined}>
                 {i === cursor ? '▸ ' : '  '}
                 {f.label}

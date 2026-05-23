@@ -7,19 +7,21 @@ import { defaultSchedule, saveSchedule } from '../../core/schedule.ts'
 
 const migrateLegacyEnv = (): { changed: boolean; config: ReturnType<typeof defaultConfig> } => {
   const base = defaultConfig()
-  // Migrate only user-specific identifiers. openwaBaseUrl defaults to the
-  // in-Docker hostname (http://openwa-api:2785) — override with
-  // `waify config set openwaBaseUrl http://localhost:2785` for local dev.
-  const legacy = {
-    openwaSessionId: process.env['OPENWA_SESSION_ID'],
-    wifeChatId: process.env['WAIFY_CHAT_ID'],
-  }
+  const legacySessionId = process.env['OPENWA_SESSION_ID']
+  const legacyChatId = process.env['WAIFY_CHAT_ID']
+
+  const recipients =
+    legacyChatId
+      ? [{ chatId: legacyChatId }]
+      : base.recipients
+
   const next = ConfigSchema.parse({
     openwaBaseUrl: base.openwaBaseUrl,
-    openwaSessionId: legacy.openwaSessionId ?? base.openwaSessionId,
-    wifeChatId: legacy.wifeChatId ?? base.wifeChatId,
+    openwaSessionId: legacySessionId ?? base.openwaSessionId,
+    openwaApiKey: base.openwaApiKey,
+    recipients,
   })
-  const changed = Boolean(legacy.openwaSessionId || legacy.wifeChatId)
+  const changed = Boolean(legacySessionId || legacyChatId)
   return { changed, config: next }
 }
 

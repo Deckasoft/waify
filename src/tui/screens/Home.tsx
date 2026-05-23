@@ -25,7 +25,7 @@ export const Home = () => {
   const lastSent = history[0]
 
   const hasSecrets = Boolean(secrets.GEMINI_API_KEY && secrets.OPENWA_API_KEY)
-  const hasConfig = Boolean(cfg.openwaSessionId && cfg.wifeChatId)
+  const hasConfig = Boolean(cfg.openwaSessionId && cfg.recipients[0]?.chatId)
 
   const doPreview = async () => {
     if (!secrets.GEMINI_API_KEY) {
@@ -61,7 +61,7 @@ export const Home = () => {
         baseUrl: cfg.openwaBaseUrl,
         apiKey: secrets.OPENWA_API_KEY ?? '',
         sessionId: cfg.openwaSessionId ?? '',
-        chatId: cfg.wifeChatId ?? '',
+        chatId: cfg.recipients[0]?.chatId ?? '',
         text,
       })
       log('sent', text.slice(0, 80))
