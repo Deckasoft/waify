@@ -14,7 +14,7 @@ Send a daily heartfelt message to someone you care about — automatically gener
 ## Quick Start
 
 ```bash
-npm install -g waify
+npm install -g @deckasoft/waify
 waify setup        # guided wizard: starts OpenWA, scans QR, configures everything
 waify send         # send your first message
 ```
