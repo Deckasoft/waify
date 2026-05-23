@@ -22,7 +22,7 @@ services:
   openwa-dashboard:
     image: ghcr.io/deckasoft/openwa:latest
     ports:
-      - '2786:4000'
+      - '2886:4000'
     environment:
       - NODE_ENV=production
     restart: unless-stopped

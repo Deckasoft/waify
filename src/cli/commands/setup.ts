@@ -44,7 +44,7 @@ const composeTemplate = (openwaApiKey: string): string => `services:
   openwa-dashboard:
     image: ghcr.io/deckasoft/openwa:latest
     ports:
-      - '2786:4000'
+      - '2886:4000'
     environment:
       - NODE_ENV=production
       - OPENWA_API_KEY=${openwaApiKey}
@@ -150,7 +150,7 @@ export const registerSetup = (program: Command): void => {
         : rawQr
 
       qrcode.generate(qrString, { small: true })
-      console.warn('   Or open in browser: http://localhost:2786')
+      console.warn('   Or open in browser: http://localhost:2886')
 
       let connected = false
       for (let attempt = 0; attempt < 60; attempt++) {
