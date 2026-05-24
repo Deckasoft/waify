@@ -4,7 +4,7 @@ import { envPath } from './paths.ts'
 
 export const SecretsSchema = z.object({
   GEMINI_API_KEY: z.string().min(1),
-  OPENWA_API_KEY: z.string().min(1),
+  OPENWA_API_KEY: z.string().min(1).default('dev-admin-key'),
 })
 
 export type Secrets = z.infer<typeof SecretsSchema>
