@@ -24,7 +24,7 @@ describe('log', () => {
     expect(append).toHaveBeenCalledOnce()
     const [, line] = append.mock.calls[0] as [string, string, string]
     expect(line).toMatch(/^\[\d{4}-\d{2}-\d{2}T/)
-    expect(line).toContain('sent')
+    expect(line).toContain('SENT')
     expect(line).toContain('Hoy el sol brilla más')
   })
 
@@ -34,7 +34,7 @@ describe('log', () => {
 
     const append = vi.mocked(fs.appendFileSync)
     const [, line] = append.mock.calls[0] as [string, string, string]
-    expect(line).toContain('error')
+    expect(line).toContain('ERROR')
     expect(line).toContain('Connection refused')
   })
 })
