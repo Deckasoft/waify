@@ -163,12 +163,9 @@ export const registerSetup = (program: Command): void => {
           { encoding: 'utf-8' },
         )
         const openwaApiKey = keyResult.stdout?.trim()
-        if (!openwaApiKey) {
-          throw new Error(
-            'Could not read API key from container. Check logs with: docker compose -f ' +
-              composePath() +
-              ' logs openwa-api',
-          )
+        if (keyResult.status !== 0 || !openwaApiKey) {
+          const errorMsg = keyResult.stderr?.trim() || 'Could not read API key from container.'
+          throw new Error(`${errorMsg} Check logs with: docker compose -f ${composePath()} logs openwa-api`)
         }
         saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: openwaApiKey })
         saveConfig({ ...loadConfig(), openwaApiKey, recipients: [{ chatId }] })
