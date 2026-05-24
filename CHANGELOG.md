@@ -1,3 +1,10 @@
+## [0.3.1](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.0...v0.3.1) (2026-05-24)
+
+
+### Bug Fixes
+
+* **ci:** use GH_TOKEN so semantic-release tags trigger npm-publish workflow ([f82e895](https://github.com/Deckasoft/openWa-scripts/commit/f82e895f5924bf303d0855b6ce3c0b77b23e590b))
+
 # [0.3.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.2.2...v0.3.0) (2026-05-24)
 
 
