@@ -11,10 +11,10 @@
     "automation",
     "messaging"
   ],
-  "homepage": "https://github.com/deckasoft/waify",
+  "homepage": "https://github.com/Deckasoft/openWa-scripts#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/deckasoft/waify.git"
+    "url": "https://github.com/Deckasoft/openWa-scripts.git"
   },
   "license": "MIT",
   "type": "module",
