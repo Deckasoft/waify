@@ -1,9 +1,7 @@
-name: Publish to npm
+name: Publish to npm (disabled — publishing handled inline by release.yml)
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
