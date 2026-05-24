@@ -1,3 +1,10 @@
+## [0.3.3](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.2...v0.3.3) (2026-05-24)
+
+
+### Bug Fixes
+
+* uppercase status label in log entries ([#5](https://github.com/Deckasoft/openWa-scripts/issues/5)) ([b12b177](https://github.com/Deckasoft/openWa-scripts/commit/b12b1776b55ad6e577c5fb4a7a48af9062d65ab2))
+
 ## [0.3.2](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.1...v0.3.2) (2026-05-24)
 
 
