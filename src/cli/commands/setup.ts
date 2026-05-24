@@ -85,14 +85,7 @@ export const registerSetup = (program: Command): void => {
 
         const baseUrl = loadConfig().openwaBaseUrl
 
-        // Step 3 — Prompt for OpenWA API key (default: dev-admin-key)
-        const rawApiKey = await promptLine(
-          rl,
-          'OpenWA API key (press Enter to use default "dev-admin-key"):\n> ',
-        )
-        const openwaApiKey = rawApiKey.trim() || 'dev-admin-key'
-
-        // Step 4 — Prompt for Gemini API key
+        // Step 3 — Prompt for Gemini API key
         let geminiKey = ''
         while (!geminiKey.trim()) {
           geminiKey = await promptLine(
@@ -104,7 +97,7 @@ export const registerSetup = (program: Command): void => {
           }
         }
 
-        // Step 5 — Prompt for recipient phone number
+        // Step 4 — Prompt for recipient phone number
         let recipientNumber = ''
         const phoneRegex = /^\d{8,15}$/
         while (!phoneRegex.test(recipientNumber.trim())) {
@@ -118,15 +111,15 @@ export const registerSetup = (program: Command): void => {
         }
         const chatId = `${recipientNumber.trim()}@c.us`
 
-        // Save credentials immediately so a QR timeout doesn't lose user input
-        saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: openwaApiKey })
-        saveConfig({ ...loadConfig(), openwaApiKey, recipients: [{ chatId }] })
+        // Save Gemini key and recipient immediately so a QR timeout doesn't lose user input
+        saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: '' })
+        saveConfig({ ...loadConfig(), recipients: [{ chatId }] })
 
-        // Step 6 — Write docker-compose.yml
+        // Step 5 — Write docker-compose.yml
         console.warn('Writing docker-compose.yml...')
         writeFileSync(composePath(), composeTemplate(), 'utf-8')
 
-        // Step 7 — Start API container
+        // Step 6 — Start API container
         console.warn('Starting OpenWA containers (this may take a minute on first run)...')
         const upResult = spawnSync('docker', ['compose', '-f', composePath(), 'up', '-d', '--no-deps', 'openwa-api'], {
           stdio: 'inherit',
@@ -137,7 +130,7 @@ export const registerSetup = (program: Command): void => {
           return
         }
 
-        // Step 8 — Wait for OpenWA API health check
+        // Step 7 — Wait for OpenWA API health check
         console.warn('Waiting for OpenWA API to start...')
         let apiReady = false
         for (let attempt = 0; attempt < 30; attempt++) {
@@ -161,6 +154,24 @@ export const registerSetup = (program: Command): void => {
           process.exitCode = 1
           return
         }
+
+        // Step 8 — Read the API key the server generated (production mode generates a random key)
+        console.warn('Reading API key from container...')
+        const keyResult = spawnSync(
+          'docker',
+          ['compose', '-f', composePath(), 'exec', '-T', 'openwa-api', 'cat', '/app/data/.api-key'],
+          { encoding: 'utf-8' },
+        )
+        const openwaApiKey = keyResult.stdout?.trim()
+        if (!openwaApiKey) {
+          throw new Error(
+            'Could not read API key from container. Check logs with: docker compose -f ' +
+              composePath() +
+              ' logs openwa-api',
+          )
+        }
+        saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: openwaApiKey })
+        saveConfig({ ...loadConfig(), openwaApiKey, recipients: [{ chatId }] })
 
         // Step 9 — Create WhatsApp session
         console.warn('Creating WhatsApp session...')
