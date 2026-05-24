@@ -1,3 +1,10 @@
+## [0.3.5](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.4...v0.3.5) (2026-05-24)
+
+
+### Bug Fixes
+
+* **setup:** correct docker compose template, API key bootstrap, and session flow ([#7](https://github.com/Deckasoft/openWa-scripts/issues/7)) ([1b1dbbd](https://github.com/Deckasoft/openWa-scripts/commit/1b1dbbd4c773f8320ea9073971a52a89d7dbea07))
+
 ## [0.3.4](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.3...v0.3.4) (2026-05-24)
 
 ## [0.3.3](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.2...v0.3.3) (2026-05-24)
