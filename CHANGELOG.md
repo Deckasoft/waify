@@ -1,3 +1,10 @@
+## [0.3.8](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.7...v0.3.8) (2026-05-24)
+
+
+### Bug Fixes
+
+* **setup:** read generated API key from container instead of hardcoding dev-admin-key ([#10](https://github.com/Deckasoft/openWa-scripts/issues/10)) ([86e77f6](https://github.com/Deckasoft/openWa-scripts/commit/86e77f6e56853c981173f96b7abd238a4bd735e7))
+
 ## [0.3.7](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.6...v0.3.7) (2026-05-24)
 
 
