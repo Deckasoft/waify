@@ -18,14 +18,14 @@ export const log = (status: LogStatus, detail: string): void => {
   appendFileSync(path, line, 'utf-8')
 }
 
-const LINE_RE = /^\[([^\]]+)\]\s+(sent|error)\s+\|\s+(.*)$/
+const LINE_RE = /^\[([^\]]+)\]\s+(sent|error)\s+\|\s+(.*)$/i
 
 const parseLine = (line: string): LogEntry | null => {
   const match = LINE_RE.exec(line)
   if (!match) return null
   const [, timestamp, status, detail] = match
   if (!timestamp || !status || detail === undefined) return null
-  return { timestamp, status: status as LogStatus, detail }
+  return { timestamp, status: status.toLowerCase() as LogStatus, detail }
 }
 
 export const readHistory = (limit?: number): readonly LogEntry[] => {
