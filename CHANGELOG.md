@@ -1,3 +1,10 @@
+## [0.3.6](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.5...v0.3.6) (2026-05-24)
+
+
+### Bug Fixes
+
+* **setup:** render QR in terminal, collect API keys upfront, add dev-admin-key fallback ([#8](https://github.com/Deckasoft/openWa-scripts/issues/8)) ([e34f63e](https://github.com/Deckasoft/openWa-scripts/commit/e34f63eadd2ad4f644d70fe2b93e711d6490862d))
+
 ## [0.3.5](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.4...v0.3.5) (2026-05-24)
 
 
