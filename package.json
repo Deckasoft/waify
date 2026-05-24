@@ -46,9 +46,12 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "@types/node": "^22.0.0",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/react": "^19.2.15",
+    "semantic-release": "^25.0.3",
     "tsup": "^8.5.1",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",
