@@ -66,7 +66,7 @@ export const registerInit = (program: Command): void => {
       if (!migration.changed) {
         console.warn('  2. Set the runtime values:')
         console.warn('     waify config set openwaSessionId <uuid from openwa dashboard>')
-        console.warn('     waify config set wifeChatId <countrycode+number>@c.us')
+        console.warn('     waify config set recipients.0.chatId <countrycode+number>@c.us')
       } else {
         console.warn('  2. Verify migrated values: waify config list')
       }
