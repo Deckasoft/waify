@@ -26,6 +26,9 @@ const StatusResponseSchema = z.object({
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
+const fetchWithTimeout = (url: string, opts: RequestInit = {}, timeoutMs = 5000): Promise<Response> =>
+  fetch(url, { ...opts, signal: AbortSignal.timeout(timeoutMs) })
+
 const composeTemplate = (): string => `services:
   openwa-api:
     image: ghcr.io/deckasoft/openwa:latest
@@ -99,7 +102,7 @@ export const registerSetup = (program: Command): void => {
       let apiReady = false
       for (let attempt = 0; attempt < 30; attempt++) {
         try {
-          const res = await fetch('http://localhost:2785/api/health')
+          const res = await fetchWithTimeout('http://localhost:2785/api/health')
           if (res.status >= 200 && res.status < 300) {
             apiReady = true
             break
@@ -136,14 +139,14 @@ export const registerSetup = (program: Command): void => {
 
       // Step 7 — Create WhatsApp session
       console.warn('Creating WhatsApp session...')
-      const sessionRes = await fetch('http://localhost:2785/api/sessions', {
+      const sessionRes = await fetchWithTimeout('http://localhost:2785/api/sessions', {
         method: 'POST',
         headers: {
           'X-API-Key': openwaApiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ name: 'waify' }),
-      })
+      }, 10000)
       if (!sessionRes.ok) {
         throw new Error(`Failed to create session: ${sessionRes.status} ${sessionRes.statusText}`)
       }
@@ -153,10 +156,10 @@ export const registerSetup = (program: Command): void => {
 
       // Step 8 — Start session to initiate WhatsApp engine
       console.warn('Starting WhatsApp engine...')
-      const startRes = await fetch(`http://localhost:2785/api/sessions/${sessionId}/start`, {
+      const startRes = await fetchWithTimeout(`http://localhost:2785/api/sessions/${sessionId}/start`, {
         method: 'POST',
         headers: { 'X-API-Key': openwaApiKey },
-      })
+      }, 10000)
       if (!startRes.ok) {
         throw new Error(`Failed to start session: ${startRes.status} ${startRes.statusText}`)
       }
@@ -166,7 +169,7 @@ export const registerSetup = (program: Command): void => {
       let qrReady = false
       for (let attempt = 0; attempt < 30; attempt++) {
         try {
-          const qrRes = await fetch(`http://localhost:2785/api/sessions/${sessionId}/qr`, {
+          const qrRes = await fetchWithTimeout(`http://localhost:2785/api/sessions/${sessionId}/qr`, {
             headers: { 'X-API-Key': openwaApiKey },
           })
           if (qrRes.ok) {
@@ -194,7 +197,7 @@ export const registerSetup = (program: Command): void => {
       let connected = false
       for (let attempt = 0; attempt < 60; attempt++) {
         try {
-          const statusRes = await fetch(`http://localhost:2785/api/sessions/${sessionId}`, {
+          const statusRes = await fetchWithTimeout(`http://localhost:2785/api/sessions/${sessionId}`, {
             headers: { 'X-API-Key': openwaApiKey },
           })
           const parsed = StatusResponseSchema.safeParse(await statusRes.json())
