@@ -1,3 +1,11 @@
+## [0.3.2](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.1...v0.3.2) (2026-05-24)
+
+
+### Bug Fixes
+
+* **init:** replace stale wifeChatId reference with recipients.0.chatId in next steps ([91004db](https://github.com/Deckasoft/openWa-scripts/commit/91004db9f41e0257e2fe0e8e37e12aaec4afa0cf))
+* **init:** revert recipients path to wifeChatId alias supported by config set ([d22d3b3](https://github.com/Deckasoft/openWa-scripts/commit/d22d3b37cabf127d8f2d7e36bb6e8dacd4d7aeb6))
+
 ## [0.3.1](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.0...v0.3.1) (2026-05-24)
 
 
