@@ -1,3 +1,10 @@
+## [0.3.7](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.6...v0.3.7) (2026-05-24)
+
+
+### Bug Fixes
+
+* **setup:** remove the openwa dashboard package image from setup template ([#9](https://github.com/Deckasoft/openWa-scripts/issues/9)) ([fb6529d](https://github.com/Deckasoft/openWa-scripts/commit/fb6529d2556a6ec3cd1356adec3968678439131c))
+
 ## [0.3.6](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.5...v0.3.6) (2026-05-24)
 
 
