@@ -53,12 +53,6 @@ const composeTemplate = (): string => `services:
       - openwa-data:/app/data
     restart: unless-stopped
 
-  openwa-dashboard:
-    image: ghcr.io/deckasoft/openwa-dashboard:latest
-    ports:
-      - '2886:80'
-    restart: unless-stopped
-
 volumes:
   openwa-data:
 `
