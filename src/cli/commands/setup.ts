@@ -81,12 +81,15 @@ export const registerSetup = (program: Command): void => {
         const dockerCheck = spawnSync('docker', ['info'], { stdio: 'pipe' })
         if (dockerCheck.status !== 0) {
           console.error('Docker is not running or not installed. Please install Docker and start it before running setup.')
-          process.exit(1)
+          process.exitCode = 1
+          return
         }
 
         // Step 2 — Create config directory
         console.warn('Creating config directory...')
         mkdirSync(join(homedir(), '.config', 'waify'), { recursive: true })
+
+        const baseUrl = loadConfig().openwaBaseUrl
 
         // Step 3 — Prompt for OpenWA API key (default: dev-admin-key)
         const rawApiKey = await promptLine(
@@ -121,6 +124,10 @@ export const registerSetup = (program: Command): void => {
         }
         const chatId = `${recipientNumber.trim()}@c.us`
 
+        // Save credentials immediately so a QR timeout doesn't lose user input
+        saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: openwaApiKey })
+        saveConfig({ ...loadConfig(), openwaApiKey, recipients: [{ chatId }] })
+
         // Step 6 — Write docker-compose.yml
         console.warn('Writing docker-compose.yml...')
         writeFileSync(composePath(), composeTemplate(), 'utf-8')
@@ -132,7 +139,8 @@ export const registerSetup = (program: Command): void => {
         })
         if (upResult.status !== 0) {
           console.error('Failed to start OpenWA containers. Check docker compose logs for details.')
-          process.exit(1)
+          process.exitCode = 1
+          return
         }
 
         // Step 8 — Wait for OpenWA API health check
@@ -140,7 +148,7 @@ export const registerSetup = (program: Command): void => {
         let apiReady = false
         for (let attempt = 0; attempt < 30; attempt++) {
           try {
-            const res = await fetchWithTimeout('http://localhost:2785/api/health')
+            const res = await fetchWithTimeout(`${baseUrl}/api/health`)
             if (res.status >= 200 && res.status < 300) {
               apiReady = true
               break
@@ -156,12 +164,13 @@ export const registerSetup = (program: Command): void => {
               composePath() +
               ' logs openwa-api',
           )
-          process.exit(1)
+          process.exitCode = 1
+          return
         }
 
         // Step 9 — Create WhatsApp session
         console.warn('Creating WhatsApp session...')
-        const sessionRes = await fetchWithTimeout('http://localhost:2785/api/sessions', {
+        const sessionRes = await fetchWithTimeout(`${baseUrl}/api/sessions`, {
           method: 'POST',
           headers: {
             'X-API-Key': openwaApiKey,
@@ -177,7 +186,7 @@ export const registerSetup = (program: Command): void => {
 
         // Step 10 — Start session to initiate WhatsApp engine
         console.warn('Starting WhatsApp engine...')
-        const startRes = await fetchWithTimeout(`http://localhost:2785/api/sessions/${sessionId}/start`, {
+        const startRes = await fetchWithTimeout(`${baseUrl}/api/sessions/${sessionId}/start`, {
           method: 'POST',
           headers: { 'X-API-Key': openwaApiKey },
         }, 10000)
@@ -190,7 +199,7 @@ export const registerSetup = (program: Command): void => {
         let qrCode: string | undefined
         for (let attempt = 0; attempt < 30; attempt++) {
           try {
-            const qrRes = await fetchWithTimeout(`http://localhost:2785/api/sessions/${sessionId}/qr`, {
+            const qrRes = await fetchWithTimeout(`${baseUrl}/api/sessions/${sessionId}/qr`, {
               headers: { 'X-API-Key': openwaApiKey },
             })
             if (qrRes.ok) {
@@ -212,7 +221,7 @@ export const registerSetup = (program: Command): void => {
           await renderQr(qrCode)
           console.warn('\n   (QR expires in ~20s — re-run setup if it expires before you scan)')
         } else {
-          console.warn(`   QR not yet ready. Check: http://localhost:2785/api/sessions/${sessionId}/qr`)
+          console.warn(`   QR not yet ready. Check: ${baseUrl}/api/sessions/${sessionId}/qr`)
           console.warn(`   (Add header: X-API-Key: ${openwaApiKey})`)
         }
         console.warn('   Waiting up to 2 minutes for you to scan...\n')
@@ -221,7 +230,7 @@ export const registerSetup = (program: Command): void => {
         let connected = false
         for (let attempt = 0; attempt < 60; attempt++) {
           try {
-            const statusRes = await fetchWithTimeout(`http://localhost:2785/api/sessions/${sessionId}`, {
+            const statusRes = await fetchWithTimeout(`${baseUrl}/api/sessions/${sessionId}`, {
               headers: { 'X-API-Key': openwaApiKey },
             })
             const parsed = StatusResponseSchema.safeParse(await statusRes.json())
@@ -237,13 +246,13 @@ export const registerSetup = (program: Command): void => {
         }
         if (!connected) {
           console.error('WhatsApp did not connect within 2 minutes. Please re-run `waify setup` to try again.')
-          process.exit(1)
+          process.exitCode = 1
+          return
         }
         console.warn('✓ WhatsApp connected!')
 
-        // Step 13 — Save config + secrets
-        saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: openwaApiKey })
-        saveConfig({ ...loadConfig(), openwaApiKey, openwaSessionId: sessionId, recipients: [{ chatId }] })
+        // Step 13 — Persist session ID now that we have it
+        saveConfig({ ...loadConfig(), openwaSessionId: sessionId })
 
         // Step 14 — Seed defaults
         if (!existsSync(promptPath())) {
@@ -257,7 +266,7 @@ export const registerSetup = (program: Command): void => {
         console.warn('\n✓ All done! Run `waify send` to send your first message.')
       } catch (err) {
         console.error(err instanceof Error ? err.message : String(err))
-        process.exit(1)
+        process.exitCode = 1
       } finally {
         rl.close()
       }
