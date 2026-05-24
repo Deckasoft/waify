@@ -1,3 +1,15 @@
+# [0.3.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.2.2...v0.3.0) (2026-05-24)
+
+
+### Bug Fixes
+
+* **ci:** remove invalid package-manager-cache input, opt into Node.js 24 actions ([27f436c](https://github.com/Deckasoft/openWa-scripts/commit/27f436c629d3f2044b1003ec1cddd7700fa60218))
+
+
+### Features
+
+* **ci:** add semantic-release for automated versioning from conventional commits ([7a569e6](https://github.com/Deckasoft/openWa-scripts/commit/7a569e6d2221618e65a1e925d95569ccc855554d))
+
 # Changelog
 
 ## [0.1.0] - 2026-05-23
