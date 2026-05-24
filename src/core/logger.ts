@@ -14,7 +14,7 @@ export const log = (status: LogStatus, detail: string): void => {
   const path = logPath()
   mkdirSync(dirname(path), { recursive: true })
   const timestamp = new Date().toISOString()
-  const line = `[${timestamp}] ${status} | ${detail}\n`
+  const line = `[${timestamp}] ${status.toUpperCase()} | ${detail}\n`
   appendFileSync(path, line, 'utf-8')
 }
 
