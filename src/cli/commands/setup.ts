@@ -4,9 +4,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { createInterface } from 'readline'
-import * as crypto from 'crypto'
 import { z } from 'zod'
-import qrcode from 'qrcode-terminal'
 import { composePath, promptPath, scheduleJsonPath } from '../../core/paths.ts'
 import { loadConfig, saveConfig } from '../../core/config.ts'
 import { saveSecrets } from '../../core/secrets.ts'
@@ -19,35 +17,42 @@ const SessionResponseSchema = z.object({
 })
 
 const QrResponseSchema = z.object({
-  qr: z.string().optional(),
+  qrCode: z.string().optional(),
 })
 
 const StatusResponseSchema = z.object({
   status: z.string().optional(),
-  connected: z.boolean().optional(),
 })
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-const composeTemplate = (openwaApiKey: string): string => `services:
+const composeTemplate = (): string => `services:
   openwa-api:
     image: ghcr.io/deckasoft/openwa:latest
     ports:
-      - '2785:3000'
+      - '2785:2785'
     environment:
       - NODE_ENV=production
-      - OPENWA_API_KEY=${openwaApiKey}
+      - PORT=2785
+      - DATABASE_TYPE=sqlite
+      - DATABASE_SYNCHRONIZE=true
+      - ENGINE_TYPE=whatsapp-web.js
+      - SESSION_DATA_PATH=/app/data/sessions
+      - PUPPETEER_HEADLESS=true
+      - PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=/app/data/media
+      - QUEUE_ENABLED=false
+      - REDIS_ENABLED=false
+      - REDIS_BUILTIN=false
     volumes:
       - openwa-data:/app/data
     restart: unless-stopped
 
   openwa-dashboard:
-    image: ghcr.io/deckasoft/openwa:latest
+    image: ghcr.io/deckasoft/openwa-dashboard:latest
     ports:
-      - '2886:4000'
-    environment:
-      - NODE_ENV=production
-      - OPENWA_API_KEY=${openwaApiKey}
+      - '2886:80'
     restart: unless-stopped
 
 volumes:
@@ -62,6 +67,7 @@ export const registerSetup = (program: Command): void => {
     .command('setup')
     .description('Guided first-run wizard: installs OpenWA, authenticates WhatsApp, and configures waify')
     .action(async () => {
+      try {
       // Step 1 — Check Docker
       console.warn('Checking Docker...')
       const dockerCheck = spawnSync('docker', ['info'], { stdio: 'pipe' })
@@ -74,17 +80,13 @@ export const registerSetup = (program: Command): void => {
       console.warn('Creating config directory...')
       mkdirSync(join(homedir(), '.config', 'waify'), { recursive: true })
 
-      // Step 3 — Generate OpenWA API key
-      console.warn('Generating credentials...')
-      const openwaApiKey = crypto.randomUUID()
-
-      // Step 4 — Write docker-compose.yml
+      // Step 3 — Write docker-compose.yml
       console.warn('Writing docker-compose.yml...')
-      writeFileSync(composePath(), composeTemplate(openwaApiKey), 'utf-8')
+      writeFileSync(composePath(), composeTemplate(), 'utf-8')
 
-      // Step 5 — Start containers
+      // Step 4 — Start API container (dashboard image may not exist yet, start separately)
       console.warn('Starting OpenWA containers (this may take a minute on first run)...')
-      const upResult = spawnSync('docker', ['compose', '-f', composePath(), 'up', '-d'], {
+      const upResult = spawnSync('docker', ['compose', '-f', composePath(), 'up', '-d', '--no-deps', 'openwa-api'], {
         stdio: 'inherit',
       })
       if (upResult.status !== 0) {
@@ -92,12 +94,12 @@ export const registerSetup = (program: Command): void => {
         process.exit(1)
       }
 
-      // Step 6 — Wait for OpenWA API
+      // Step 5 — Wait for OpenWA API health check
       console.warn('Waiting for OpenWA API to start...')
       let apiReady = false
       for (let attempt = 0; attempt < 30; attempt++) {
         try {
-          const res = await fetch('http://localhost:2785/api')
+          const res = await fetch('http://localhost:2785/api/health')
           if (res.status >= 200 && res.status < 300) {
             apiReady = true
             break
@@ -113,6 +115,22 @@ export const registerSetup = (program: Command): void => {
             composePath() +
             ' logs openwa-api',
         )
+        process.exit(1)
+      }
+
+      // Step 6 — Read the auto-generated API key from the container
+      console.warn('Reading API credentials...')
+      const keyResult = spawnSync(
+        'docker',
+        ['compose', '-f', composePath(), 'exec', '-T', 'openwa-api', 'cat', '/app/data/.api-key'],
+        { encoding: 'utf-8', stdio: 'pipe' },
+      )
+      const openwaApiKey = keyResult.stdout?.trim()
+      if (keyResult.status !== 0 || !openwaApiKey) {
+        console.error(
+          'Could not read API key from container. Check logs: docker compose -f ' + composePath() + ' logs openwa-api',
+        )
+        if (keyResult.stderr) console.error(keyResult.stderr)
         process.exit(1)
       }
 
@@ -133,38 +151,55 @@ export const registerSetup = (program: Command): void => {
       const sessionId = sessionData.id ?? sessionData.name ?? 'waify'
       saveConfig({ ...loadConfig(), openwaApiKey, openwaSessionId: sessionId })
 
-      // Step 8 — Display QR and poll for connection
-      console.warn('📱 Scan the QR code below with WhatsApp on your phone:')
-      console.warn('   (Settings → Linked Devices → Link a Device)')
-
-      const qrRes = await fetch('http://localhost:2785/api/sessions/waify/qr', {
+      // Step 8 — Start session to initiate WhatsApp engine
+      console.warn('Starting WhatsApp engine...')
+      const startRes = await fetch(`http://localhost:2785/api/sessions/${sessionId}/start`, {
+        method: 'POST',
         headers: { 'X-API-Key': openwaApiKey },
       })
-      if (!qrRes.ok) {
-        console.warn('   Could not fetch QR code — use the browser link below.')
+      if (!startRes.ok) {
+        throw new Error(`Failed to start session: ${startRes.status} ${startRes.statusText}`)
       }
-      const qrData = qrRes.ok ? QrResponseSchema.parse(await qrRes.json()) : { qr: undefined }
-      const rawQr = qrData.qr ?? ''
-      const qrString = rawQr.startsWith('data:image/png;base64,')
-        ? rawQr.slice('data:image/png;base64,'.length)
-        : rawQr
 
-      qrcode.generate(qrString, { small: true })
-      console.warn('   Or open in browser: http://localhost:2886')
+      // Step 9 — Wait for QR code to be ready (Chromium cold-start can take >30s)
+      console.warn('Waiting for QR code...')
+      let qrReady = false
+      for (let attempt = 0; attempt < 30; attempt++) {
+        try {
+          const qrRes = await fetch(`http://localhost:2785/api/sessions/${sessionId}/qr`, {
+            headers: { 'X-API-Key': openwaApiKey },
+          })
+          if (qrRes.ok) {
+            const qrData = QrResponseSchema.parse(await qrRes.json())
+            if (qrData.qrCode) {
+              qrReady = true
+              break
+            }
+          }
+        } catch {
+          // not ready yet
+        }
+        await wait(2000)
+      }
 
+      console.warn('\n📱 Scan the QR code with WhatsApp to link your device:')
+      console.warn('   Settings → Linked Devices → Link a Device')
+      console.warn('   View QR at: http://localhost:2785/api/docs  (Sessions → GET /sessions/{id}/qr)')
+      if (!qrReady) {
+        console.warn('   (QR not yet ready — Chromium may still be initializing, check the Swagger link above)')
+      }
+      console.warn('   Waiting up to 2 minutes for you to scan...\n')
+
+      // Step 10 — Poll for WhatsApp connection
       let connected = false
       for (let attempt = 0; attempt < 60; attempt++) {
         try {
-          const statusRes = await fetch('http://localhost:2785/api/sessions/waify', {
+          const statusRes = await fetch(`http://localhost:2785/api/sessions/${sessionId}`, {
             headers: { 'X-API-Key': openwaApiKey },
           })
           const parsed = StatusResponseSchema.safeParse(await statusRes.json())
           if (!parsed.success) continue
-          const statusData = parsed.data
-          if (
-            statusData.status === 'CONNECTED' ||
-            statusData.connected === true
-          ) {
+          if (parsed.data.status === 'ready') {
             connected = true
             break
           }
@@ -179,7 +214,7 @@ export const registerSetup = (program: Command): void => {
       }
       console.warn('✓ WhatsApp connected!')
 
-      // Step 9 — Prompt for Gemini API key
+      // Step 11 — Prompt for Gemini API key
       const rl = createInterface({ input: process.stdin, output: process.stdout })
       try {
         let geminiKey = ''
@@ -192,9 +227,9 @@ export const registerSetup = (program: Command): void => {
             console.warn('Gemini API key cannot be empty. Please try again.')
           }
         }
-        saveSecrets({ GEMINI_API_KEY: geminiKey.trim() })
+        saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: openwaApiKey })
 
-        // Step 10 — Prompt for recipient
+        // Step 12 — Prompt for recipient
         let recipientNumber = ''
         const phoneRegex = /^\d{8,15}$/
         while (!phoneRegex.test(recipientNumber.trim())) {
@@ -212,7 +247,7 @@ export const registerSetup = (program: Command): void => {
         rl.close()
       }
 
-      // Step 11 — Seed defaults
+      // Step 13 — Seed defaults
       if (!existsSync(promptPath())) {
         savePrompt(defaultPrompt)
       }
@@ -220,7 +255,11 @@ export const registerSetup = (program: Command): void => {
         saveSchedule(defaultSchedule)
       }
 
-      // Step 12 — Done
-      console.warn('✓ All done! Run `waify send` to send your first message.')
+      // Step 14 — Done
+      console.warn('\n✓ All done! Run `waify send` to send your first message.')
+      } catch (err) {
+        console.error(err instanceof Error ? err.message : String(err))
+        process.exit(1)
+      }
     })
 }
