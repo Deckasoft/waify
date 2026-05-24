@@ -1,6 +1,6 @@
 {
   "name": "@deckasoft/waify",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "AI-powered daily message sender for WhatsApp, powered by OpenWA",
   "keywords": [
     "whatsapp",
