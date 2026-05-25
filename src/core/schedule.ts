@@ -1,14 +1,38 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
-import { dirname, resolve } from 'path'
+import { dirname } from 'path'
 import { z } from 'zod'
-import { scheduleJsonPath as getScheduleJsonPath, schedulePath } from './paths.ts'
+import { dataDir, envPath, scheduleJsonPath as getScheduleJsonPath, schedulePath } from './paths.ts'
+
+const CRON_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0, 59], // seconds
+  [0, 59], // minutes
+  [0, 23], // hours
+  [1, 31], // day-of-month
+  [1, 12], // month
+  [0, 7],  // day-of-week
+]
+
+const isValidCronField = (field: string, [min, max]: readonly [number, number]): boolean => {
+  if (field === '*') return true
+  if (field.includes('/') || field.includes('-')) return true
+  const n = Number(field)
+  return Number.isInteger(n) && n >= min && n <= max
+}
+
+export const isValidCron = (value: string): boolean => {
+  const fields = value.trim().split(/\s+/)
+  return fields.length === 6 && fields.every((f, i) => isValidCronField(f, CRON_RANGES[i]!))
+}
 
 export const ScheduledJobSchema = z.object({
   name: z
     .string()
     .min(1)
     .regex(/^[a-z0-9-]+$/, 'name must be lowercase alphanumeric with dashes'),
-  schedule: z.string().min(1),
+  schedule: z
+    .string()
+    .min(1)
+    .refine(isValidCron, { message: 'schedule must be a 6-field cron expression (e.g. 0 0 9 * * *)' }),
   command: z.string().min(1).default('send'),
 })
 
@@ -53,8 +77,8 @@ export type OfeliaRuntime = {
 const ofeliaRuntime = (): OfeliaRuntime => ({
   image: process.env['WAIFY_SENDER_IMAGE'] ?? 'openwa-scripts-sender:latest',
   network: process.env['WAIFY_NETWORK'] ?? 'waify-network',
-  hostDataDir: process.env['WAIFY_HOST_DATA_DIR'] ?? resolve(process.cwd(), 'data'),
-  hostEnvFile: process.env['WAIFY_HOST_ENV_FILE'] ?? resolve(process.cwd(), '.env'),
+  hostDataDir: process.env['WAIFY_HOST_DATA_DIR'] ?? dataDir(),
+  hostEnvFile: process.env['WAIFY_HOST_ENV_FILE'] ?? envPath(),
 })
 
 const renderJob = (job: ScheduledJob, runtime: OfeliaRuntime): string =>
