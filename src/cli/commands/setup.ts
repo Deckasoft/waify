@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { composePath, promptPath, scheduleJsonPath } from '../../core/paths.ts';
 import { loadConfig, saveConfig } from '../../core/config.ts';
 import { saveSecrets } from '../../core/secrets.ts';
-import { defaultSchedule, saveSchedule } from '../../core/schedule.ts';
+import { isValidCron, saveSchedule, ScheduledJobSchema, type ScheduledJob } from '../../core/schedule.ts';
 import { defaultPrompt, savePrompt } from '../../core/prompt.ts';
 
 const SessionResponseSchema = z.object({
@@ -144,7 +144,7 @@ const finalizeSetup = (sessionId: string): void => {
     savePrompt(defaultPrompt);
   }
   if (!existsSync(scheduleJsonPath())) {
-    saveSchedule(defaultSchedule);
+    saveSchedule({ jobs: [{ name: 'waify-morning', schedule: '0 0 9 * * *', command: 'send' }, { name: 'waify-evening', schedule: '0 0 19 * * *', command: 'send' }] });
   }
   console.warn('\n✓ All done! Run `waify send` to send your first message.');
 };
@@ -153,6 +153,45 @@ const promptLine = (
   rl: ReturnType<typeof createInterface>,
   question: string,
 ): Promise<string> => new Promise((resolve) => rl.question(question, resolve));
+
+export const promptScheduleJobs = async (
+  promptFn: (question: string) => Promise<string>,
+): Promise<ScheduledJob[]> => {
+  process.stderr.write(
+    '\nConfigure your message schedule (at least one job required).\n' +
+      'Job names: lowercase letters, numbers, and dashes only.\n' +
+      'Cron pattern: 6 fields, e.g. 0 0 9 * * *  (sec min hour dom month dow)\n\n',
+  )
+
+  const jobs: ScheduledJob[] = []
+
+  do {
+    let name = ''
+    while (!/^[a-z0-9-]+$/.test(name)) {
+      name = (await promptFn('Job name: ')).trim()
+      if (!/^[a-z0-9-]+$/.test(name)) {
+        process.stderr.write('Name must be lowercase letters, numbers, and dashes only.\n')
+      }
+    }
+
+    let schedule = ''
+    while (!isValidCron(schedule)) {
+      schedule = (await promptFn('Cron pattern (e.g. 0 0 9 * * *): ')).trim()
+      if (!isValidCron(schedule)) {
+        process.stderr.write(
+          'Invalid cron pattern. Use 6 space-separated fields, e.g. 0 0 9 * * *\n',
+        )
+      }
+    }
+
+    jobs.push(ScheduledJobSchema.parse({ name, schedule, command: 'send' }))
+
+    const more = (await promptFn('Add another schedule? (y/N) ')).trim().toLowerCase()
+    if (more !== 'y') break
+  } while (true)
+
+  return jobs
+}
 
 export const registerSetup = (program: Command): void => {
   program
