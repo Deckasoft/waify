@@ -29,6 +29,8 @@ const StatusResponseSchema = z.object({
   status: z.string().optional(),
 })
 
+const SESSION_NAME = 'waify'
+
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const
 
 const createSpinner = (message: string) => {
@@ -36,7 +38,7 @@ const createSpinner = (message: string) => {
   const interval = setInterval(() => {
     process.stderr.write(`\r${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} ${message}`)
     frame++
-  }, 80)
+  }, 80).unref()
   return {
     succeed: (msg: string) => { clearInterval(interval); process.stderr.write(`\r✓ ${msg}\n`) },
     fail: (msg: string) => { clearInterval(interval); process.stderr.write(`\r✗ ${msg}\n`) },
@@ -53,7 +55,7 @@ const decodeQrDataUrl = (dataUrl: string): string | null => {
   const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '')
   const buffer = Buffer.from(base64, 'base64')
   const png = PNG.sync.read(buffer)
-  const result = jsQR(new Uint8ClampedArray(png.data.buffer), png.width, png.height)
+  const result = jsQR(new Uint8ClampedArray(png.data), png.width, png.height)
   return result?.data ?? null
 }
 
@@ -212,7 +214,7 @@ export const registerSetup = (program: Command): void => {
             'X-API-Key': openwaApiKey,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ name: 'waify' }),
+          body: JSON.stringify({ name: SESSION_NAME }),
         }, 10000)
 
         let sessionId: string
@@ -225,7 +227,7 @@ export const registerSetup = (program: Command): void => {
             throw new Error(`Failed to list sessions: ${listRes.status} ${listRes.statusText}`)
           }
           const sessions = SessionListSchema.parse(await listRes.json())
-          const existing = sessions.find((s) => s.name === 'waify')
+          const existing = sessions.find((s) => s.name === SESSION_NAME)
           if (!existing?.id) {
             throw new Error('Session "waify" already exists but could not be retrieved')
           }
@@ -234,14 +236,14 @@ export const registerSetup = (program: Command): void => {
           throw new Error(`Failed to create session: ${sessionRes.status} ${sessionRes.statusText}`)
         } else {
           const sessionData = SessionResponseSchema.parse(await sessionRes.json())
-          sessionId = sessionData.id ?? sessionData.name ?? 'waify'
+          sessionId = sessionData.id ?? sessionData.name ?? SESSION_NAME
         }
 
         // Step 10 — Clear stale Chromium lock files left by a previous crashed run
         spawnSync(
           'docker',
           ['compose', '-f', composePath(), 'exec', '-T', 'openwa-api', 'sh', '-c',
-           'rm -f /app/data/sessions/session-waify/Singleton*'],
+           `rm -f /app/data/sessions/session-${SESSION_NAME}/Singleton*`],
           { encoding: 'utf-8' },
         )
 
