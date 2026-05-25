@@ -7,7 +7,7 @@ import { createInterface } from 'readline';
 import qrcode from 'qrcode-terminal';
 import { decodeQrDataUrl, saveQrImage } from '../../core/qr.ts';
 import { z } from 'zod';
-import { composePath, promptPath, scheduleJsonPath } from '../../core/paths.ts';
+import { composePath, promptPath } from '../../core/paths.ts';
 import { loadConfig, saveConfig } from '../../core/config.ts';
 import { saveSecrets } from '../../core/secrets.ts';
 import { isValidCron, saveSchedule, ScheduledJobSchema, type ScheduledJob } from '../../core/schedule.ts';
@@ -138,14 +138,12 @@ volumes:
   openwa-data:
 `;
 
-const finalizeSetup = (sessionId: string): void => {
+const finalizeSetup = (sessionId: string, jobs: ScheduledJob[]): void => {
   saveConfig({ ...loadConfig(), openwaSessionId: sessionId });
   if (!existsSync(promptPath())) {
     savePrompt(defaultPrompt);
   }
-  if (!existsSync(scheduleJsonPath())) {
-    saveSchedule({ jobs: [{ name: 'waify-morning', schedule: '0 0 9 * * *', command: 'send' }, { name: 'waify-evening', schedule: '0 0 19 * * *', command: 'send' }] });
-  }
+  saveSchedule({ jobs });
   console.warn('\n✓ All done! Run `waify send` to send your first message.');
 };
 
@@ -260,7 +258,10 @@ export const registerSetup = (program: Command): void => {
         saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: '' });
         saveConfig({ ...loadConfig(), recipients: [{ chatId }] });
 
-        // Step 5 — Write docker-compose.yml
+        // Step 5 — Collect schedule jobs
+        const jobs = await promptScheduleJobs((q) => promptLine(rl, q));
+
+        // Step 6 — Write docker-compose.yml
         console.warn('Writing docker-compose.yml...');
         writeFileSync(composePath(), composeTemplate(), 'utf-8');
 
@@ -455,7 +456,7 @@ export const registerSetup = (program: Command): void => {
             );
             if (preStatus.success && preStatus.data.status === 'ready') {
               console.warn('✓ WhatsApp already linked — skipping QR scan');
-              finalizeSetup(sessionId);
+              finalizeSetup(sessionId, jobs);
               return;
             }
           }
@@ -542,7 +543,7 @@ export const registerSetup = (program: Command): void => {
         connectSpinner.succeed('WhatsApp connected!');
 
         // Steps 14–16 — Persist session ID, seed defaults, done
-        finalizeSetup(sessionId);
+        finalizeSetup(sessionId, jobs);
       } catch (err) {
         console.error(err instanceof Error ? err.message : String(err));
         process.exitCode = 1;
