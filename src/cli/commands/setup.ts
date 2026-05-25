@@ -205,7 +205,15 @@ export const registerSetup = (program: Command): void => {
           sessionId = sessionData.id ?? sessionData.name ?? 'waify'
         }
 
-        // Step 10 — Start session to initiate WhatsApp engine (400 = already started, that's ok)
+        // Step 10 — Clear stale Chromium lock files left by a previous crashed run
+        spawnSync(
+          'docker',
+          ['compose', '-f', composePath(), 'exec', '-T', 'openwa-api', 'sh', '-c',
+           'rm -f /app/data/sessions/session-waify/Singleton*'],
+          { encoding: 'utf-8' },
+        )
+
+        // Step 11 — Start session to initiate WhatsApp engine (400 = already started, that's ok)
         console.warn('Starting WhatsApp engine...')
         const startRes = await fetchWithTimeout(`${baseUrl}/api/sessions/${sessionId}/start`, {
           method: 'POST',
@@ -215,7 +223,7 @@ export const registerSetup = (program: Command): void => {
           throw new Error(`Failed to start session: ${startRes.status} ${startRes.statusText}`)
         }
 
-        // Step 11 — Wait for QR code to be ready (Chromium cold-start can take >30s)
+        // Step 12 — Wait for QR code to be ready (Chromium cold-start can take >30s)
         console.warn('Waiting for QR code...')
         let qrCode: string | undefined
         for (let attempt = 0; attempt < 30; attempt++) {
@@ -247,7 +255,7 @@ export const registerSetup = (program: Command): void => {
         }
         console.warn('   Waiting up to 2 minutes for you to scan...\n')
 
-        // Step 12 — Poll for WhatsApp connection
+        // Step 13 — Poll for WhatsApp connection
         let connected = false
         for (let attempt = 0; attempt < 60; attempt++) {
           try {
@@ -272,10 +280,10 @@ export const registerSetup = (program: Command): void => {
         }
         console.warn('✓ WhatsApp connected!')
 
-        // Step 13 — Persist session ID now that we have it
+        // Step 14 — Persist session ID now that we have it
         saveConfig({ ...loadConfig(), openwaSessionId: sessionId })
 
-        // Step 14 — Seed defaults
+        // Step 15 — Seed defaults
         if (!existsSync(promptPath())) {
           savePrompt(defaultPrompt)
         }
@@ -283,7 +291,7 @@ export const registerSetup = (program: Command): void => {
           saveSchedule(defaultSchedule)
         }
 
-        // Step 15 — Done
+        // Step 16 — Done
         console.warn('\n✓ All done! Run `waify send` to send your first message.')
       } catch (err) {
         console.error(err instanceof Error ? err.message : String(err))
