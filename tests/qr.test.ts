@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import QRCode from 'qrcode'
 import * as fs from 'fs'
+import { dirname } from 'path'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof fs>('fs')
   return {
     ...actual,
+    mkdirSync: vi.fn(),
     writeFileSync: vi.fn(),
   }
 })
@@ -46,6 +48,10 @@ describe('saveQrImage', () => {
     expect(result).toBe(qrImagePath())
     const write = vi.mocked(fs.writeFileSync)
     expect(write).toHaveBeenCalledOnce()
+    expect(vi.mocked(fs.mkdirSync)).toHaveBeenCalledWith(
+      dirname(qrImagePath()),
+      { recursive: true },
+    )
     const [path, bytes] = write.mock.calls[0] as [string, Buffer]
     expect(path).toBe(qrImagePath())
     const expected = Buffer.from(

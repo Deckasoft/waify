@@ -1,4 +1,5 @@
-import { writeFileSync } from 'fs'
+import { mkdirSync, writeFileSync } from 'fs'
+import { dirname } from 'path'
 import { PNG } from 'pngjs'
 import jsQR from 'jsqr'
 import { qrImagePath } from './paths.ts'
@@ -21,6 +22,7 @@ export const saveQrImage = (dataUrl: string): string | null => {
   try {
     const buffer = Buffer.from(stripDataUrlPrefix(dataUrl), 'base64')
     const path = qrImagePath()
+    mkdirSync(dirname(path), { recursive: true })
     writeFileSync(path, buffer)
     return path
   } catch (err) {
