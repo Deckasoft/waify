@@ -17,6 +17,8 @@ const SessionResponseSchema = z.object({
   name: z.string().optional(),
 })
 
+const SessionListSchema = z.array(SessionResponseSchema)
+
 const QrResponseSchema = z.object({
   qrCode: z.string().optional(),
 })
@@ -170,7 +172,7 @@ export const registerSetup = (program: Command): void => {
         saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: openwaApiKey })
         saveConfig({ ...loadConfig(), openwaApiKey, recipients: [{ chatId }] })
 
-        // Step 9 — Create WhatsApp session
+        // Step 9 — Create or retrieve existing WhatsApp session
         console.warn('Creating WhatsApp session...')
         const sessionRes = await fetchWithTimeout(`${baseUrl}/api/sessions`, {
           method: 'POST',
@@ -180,19 +182,36 @@ export const registerSetup = (program: Command): void => {
           },
           body: JSON.stringify({ name: 'waify' }),
         }, 10000)
-        if (!sessionRes.ok) {
-          throw new Error(`Failed to create session: ${sessionRes.status} ${sessionRes.statusText}`)
-        }
-        const sessionData = SessionResponseSchema.parse(await sessionRes.json())
-        const sessionId = sessionData.id ?? sessionData.name ?? 'waify'
 
-        // Step 10 — Start session to initiate WhatsApp engine
+        let sessionId: string
+        if (sessionRes.status === 409) {
+          // Session already exists from a previous run — look it up by name
+          const listRes = await fetchWithTimeout(`${baseUrl}/api/sessions`, {
+            headers: { 'X-API-Key': openwaApiKey },
+          }, 10000)
+          if (!listRes.ok) {
+            throw new Error(`Failed to list sessions: ${listRes.status} ${listRes.statusText}`)
+          }
+          const sessions = SessionListSchema.parse(await listRes.json())
+          const existing = sessions.find((s) => s.name === 'waify')
+          if (!existing?.id) {
+            throw new Error('Session "waify" already exists but could not be retrieved')
+          }
+          sessionId = existing.id
+        } else if (!sessionRes.ok) {
+          throw new Error(`Failed to create session: ${sessionRes.status} ${sessionRes.statusText}`)
+        } else {
+          const sessionData = SessionResponseSchema.parse(await sessionRes.json())
+          sessionId = sessionData.id ?? sessionData.name ?? 'waify'
+        }
+
+        // Step 10 — Start session to initiate WhatsApp engine (400 = already started, that's ok)
         console.warn('Starting WhatsApp engine...')
         const startRes = await fetchWithTimeout(`${baseUrl}/api/sessions/${sessionId}/start`, {
           method: 'POST',
           headers: { 'X-API-Key': openwaApiKey },
         }, 10000)
-        if (!startRes.ok) {
+        if (!startRes.ok && startRes.status !== 400) {
           throw new Error(`Failed to start session: ${startRes.status} ${startRes.statusText}`)
         }
 
