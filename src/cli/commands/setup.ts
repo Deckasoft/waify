@@ -5,6 +5,8 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { createInterface } from 'readline'
 import qrcode from 'qrcode-terminal'
+import { PNG } from 'pngjs'
+import jsQR from 'jsqr'
 import { z } from 'zod'
 import { composePath, promptPath, scheduleJsonPath } from '../../core/paths.ts'
 import { loadConfig, saveConfig } from '../../core/config.ts'
@@ -27,10 +29,44 @@ const StatusResponseSchema = z.object({
   status: z.string().optional(),
 })
 
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const
+
+const createSpinner = (message: string) => {
+  let frame = 0
+  const interval = setInterval(() => {
+    process.stderr.write(`\r${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} ${message}`)
+    frame++
+  }, 80)
+  return {
+    succeed: (msg: string) => { clearInterval(interval); process.stderr.write(`\r✓ ${msg}\n`) },
+    fail: (msg: string) => { clearInterval(interval); process.stderr.write(`\r✗ ${msg}\n`) },
+    stop: () => { clearInterval(interval); process.stderr.write('\r\x1b[K') },
+  }
+}
+
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 const fetchWithTimeout = (url: string, opts: RequestInit = {}, timeoutMs = 5000): Promise<Response> =>
   fetch(url, { ...opts, signal: AbortSignal.timeout(timeoutMs) })
+
+const decodeQrDataUrl = (dataUrl: string): string | null => {
+  const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '')
+  const buffer = Buffer.from(base64, 'base64')
+  const png = PNG.sync.read(buffer)
+  const result = jsQR(new Uint8ClampedArray(png.data.buffer), png.width, png.height)
+  return result?.data ?? null
+}
+
+const renderQrInTerminal = (dataUrl: string): Promise<void> =>
+  new Promise((resolve) => {
+    const raw = decodeQrDataUrl(dataUrl)
+    if (raw) {
+      qrcode.generate(raw, { small: true }, () => resolve())
+    } else {
+      console.warn('   (Could not decode QR image — try scanning from the API URL instead)')
+      resolve()
+    }
+  })
 
 const composeTemplate = (): string => `services:
   openwa-api:
@@ -61,9 +97,6 @@ volumes:
 
 const promptLine = (rl: ReturnType<typeof createInterface>, question: string): Promise<string> =>
   new Promise((resolve) => rl.question(question, resolve))
-
-const renderQr = (qrString: string): Promise<void> =>
-  new Promise((resolve) => qrcode.generate(qrString, { small: true }, () => resolve()))
 
 export const registerSetup = (program: Command): void => {
   program
@@ -133,7 +166,7 @@ export const registerSetup = (program: Command): void => {
         }
 
         // Step 7 — Wait for OpenWA API health check
-        console.warn('Waiting for OpenWA API to start...')
+        const apiSpinner = createSpinner('Waiting for OpenWA API to start...')
         let apiReady = false
         for (let attempt = 0; attempt < 30; attempt++) {
           try {
@@ -148,14 +181,13 @@ export const registerSetup = (program: Command): void => {
           await wait(2000)
         }
         if (!apiReady) {
-          console.error(
-            'OpenWA API did not become ready in time. Check logs with: docker compose -f ' +
-              composePath() +
-              ' logs openwa-api',
+          apiSpinner.fail(
+            `OpenWA API did not become ready in time. Check logs with: docker compose -f ${composePath()} logs openwa-api`,
           )
           process.exitCode = 1
           return
         }
+        apiSpinner.succeed('OpenWA API is ready')
 
         // Step 8 — Read the API key the server generated (production mode generates a random key)
         console.warn('Reading API key from container...')
@@ -223,10 +255,10 @@ export const registerSetup = (program: Command): void => {
           throw new Error(`Failed to start session: ${startRes.status} ${startRes.statusText}`)
         }
 
-        // Step 12 — Wait for QR code to be ready (Chromium cold-start can take >30s)
-        console.warn('Waiting for QR code...')
+        // Step 12 — Wait for QR code to be ready (Chromium cold-start can take >2 min on first run)
+        const qrSpinner = createSpinner('Waiting for QR code (Chromium is starting)...')
         let qrCode: string | undefined
-        for (let attempt = 0; attempt < 30; attempt++) {
+        for (let attempt = 0; attempt < 60; attempt++) {
           try {
             const qrRes = await fetchWithTimeout(`${baseUrl}/api/sessions/${sessionId}/qr`, {
               headers: { 'X-API-Key': openwaApiKey },
@@ -243,19 +275,19 @@ export const registerSetup = (program: Command): void => {
           }
           await wait(2000)
         }
+        qrSpinner.stop()
 
-        console.warn('\n📱 Scan the QR code with WhatsApp to link your device:')
+        console.warn('\n📱 Scan the QR code below with WhatsApp to link your device:')
         console.warn('   Settings → Linked Devices → Link a Device\n')
         if (qrCode) {
-          await renderQr(qrCode)
+          await renderQrInTerminal(qrCode)
           console.warn('\n   (QR expires in ~20s — re-run setup if it expires before you scan)')
         } else {
-          console.warn(`   QR not yet ready. Check: ${baseUrl}/api/sessions/${sessionId}/qr`)
-          console.warn(`   (Add header: X-API-Key: ${openwaApiKey})`)
+          console.warn('   QR code was not ready in time. Re-run `waify setup` to try again.')
         }
-        console.warn('   Waiting up to 2 minutes for you to scan...\n')
 
         // Step 13 — Poll for WhatsApp connection
+        const connectSpinner = createSpinner('Waiting for you to scan the QR code...')
         let connected = false
         for (let attempt = 0; attempt < 60; attempt++) {
           try {
@@ -274,11 +306,11 @@ export const registerSetup = (program: Command): void => {
           await wait(2000)
         }
         if (!connected) {
-          console.error('WhatsApp did not connect within 2 minutes. Please re-run `waify setup` to try again.')
+          connectSpinner.fail('WhatsApp did not connect within 2 minutes. Please re-run `waify setup` to try again.')
           process.exitCode = 1
           return
         }
-        console.warn('✓ WhatsApp connected!')
+        connectSpinner.succeed('WhatsApp connected!')
 
         // Step 14 — Persist session ID now that we have it
         saveConfig({ ...loadConfig(), openwaSessionId: sessionId })
