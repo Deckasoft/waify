@@ -339,7 +339,7 @@ export const registerSetup = (program: Command): void => {
             'openwa-api',
             'sh',
             '-c',
-            'rm -f /app/data/sessions/session-waify/Singleton*',
+            `rm -f /app/data/sessions/session-${SESSION_NAME}/Singleton*`,
           ],
           { encoding: 'utf-8' },
         );
