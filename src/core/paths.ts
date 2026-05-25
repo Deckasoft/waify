@@ -18,3 +18,5 @@ export const envPath = (): string =>
   process.env['WAIFY_ENV_PATH'] ?? join(dataDir(), '.env')
 
 export const composePath = (): string => join(dataDir(), 'docker-compose.yml')
+
+export const qrImagePath = (): string => join(dataDir(), 'qr.png')
