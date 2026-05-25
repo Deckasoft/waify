@@ -138,6 +138,17 @@ volumes:
   openwa-data:
 `;
 
+const finalizeSetup = (sessionId: string): void => {
+  saveConfig({ ...loadConfig(), openwaSessionId: sessionId });
+  if (!existsSync(promptPath())) {
+    savePrompt(defaultPrompt);
+  }
+  if (!existsSync(scheduleJsonPath())) {
+    saveSchedule(defaultSchedule);
+  }
+  console.warn('\n✓ All done! Run `waify send` to send your first message.');
+};
+
 const promptLine = (
   rl: ReturnType<typeof createInterface>,
   question: string,
@@ -386,16 +397,7 @@ export const registerSetup = (program: Command): void => {
             );
             if (preStatus.success && preStatus.data.status === 'ready') {
               console.warn('✓ WhatsApp already linked — skipping QR scan');
-              saveConfig({ ...loadConfig(), openwaSessionId: sessionId });
-              if (!existsSync(promptPath())) {
-                savePrompt(defaultPrompt);
-              }
-              if (!existsSync(scheduleJsonPath())) {
-                saveSchedule(defaultSchedule);
-              }
-              console.warn(
-                '\n✓ All done! Run `waify send` to send your first message.',
-              );
+              finalizeSetup(sessionId);
               return;
             }
           }
@@ -481,21 +483,8 @@ export const registerSetup = (program: Command): void => {
         }
         connectSpinner.succeed('WhatsApp connected!');
 
-        // Step 14 — Persist session ID now that we have it
-        saveConfig({ ...loadConfig(), openwaSessionId: sessionId });
-
-        // Step 15 — Seed defaults
-        if (!existsSync(promptPath())) {
-          savePrompt(defaultPrompt);
-        }
-        if (!existsSync(scheduleJsonPath())) {
-          saveSchedule(defaultSchedule);
-        }
-
-        // Step 16 — Done
-        console.warn(
-          '\n✓ All done! Run `waify send` to send your first message.',
-        );
+        // Steps 14–16 — Persist session ID, seed defaults, done
+        finalizeSetup(sessionId);
       } catch (err) {
         console.error(err instanceof Error ? err.message : String(err));
         process.exitCode = 1;
