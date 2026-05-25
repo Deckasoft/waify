@@ -1,3 +1,10 @@
+## [0.4.1](https://github.com/Deckasoft/openWa-scripts/compare/v0.4.0...v0.4.1) (2026-05-25)
+
+
+### Bug Fixes
+
+* **setup:** QR rendering fix, PNG + curl fallback, skip re-run timeout ([#14](https://github.com/Deckasoft/openWa-scripts/issues/14)) ([19a4e36](https://github.com/Deckasoft/openWa-scripts/commit/19a4e36ac6ca72aad2cb8effcf4af40ce2023288))
+
 # [0.4.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.10...v0.4.0) (2026-05-25)
 
 
