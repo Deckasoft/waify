@@ -7,10 +7,10 @@ import { createInterface } from 'readline';
 import qrcode from 'qrcode-terminal';
 import { decodeQrDataUrl, saveQrImage } from '../../core/qr.ts';
 import { z } from 'zod';
-import { composePath, promptPath, scheduleJsonPath } from '../../core/paths.ts';
+import { composePath, promptPath } from '../../core/paths.ts';
 import { loadConfig, saveConfig } from '../../core/config.ts';
 import { saveSecrets } from '../../core/secrets.ts';
-import { defaultSchedule, saveSchedule } from '../../core/schedule.ts';
+import { isValidCron, saveSchedule, ScheduledJobSchema, type ScheduledJob } from '../../core/schedule.ts';
 import { defaultPrompt, savePrompt } from '../../core/prompt.ts';
 
 const SessionResponseSchema = z.object({
@@ -138,14 +138,12 @@ volumes:
   openwa-data:
 `;
 
-const finalizeSetup = (sessionId: string): void => {
+const finalizeSetup = (sessionId: string, jobs: ScheduledJob[]): void => {
   saveConfig({ ...loadConfig(), openwaSessionId: sessionId });
   if (!existsSync(promptPath())) {
     savePrompt(defaultPrompt);
   }
-  if (!existsSync(scheduleJsonPath())) {
-    saveSchedule(defaultSchedule);
-  }
+  saveSchedule({ jobs });
   console.warn('\n✓ All done! Run `waify send` to send your first message.');
 };
 
@@ -153,6 +151,51 @@ const promptLine = (
   rl: ReturnType<typeof createInterface>,
   question: string,
 ): Promise<string> => new Promise((resolve) => rl.question(question, resolve));
+
+const promptUntilValid = async (
+  promptFn: (question: string) => Promise<string>,
+  question: string,
+  validate: (value: string) => boolean,
+  errorMsg: string,
+): Promise<string> => {
+  const answer = (await promptFn(question)).trim()
+  if (validate(answer)) return answer
+  process.stderr.write(errorMsg + '\n')
+  return promptUntilValid(promptFn, question, validate, errorMsg)
+}
+
+const collectJobs = async (
+  promptFn: (question: string) => Promise<string>,
+  accumulated: ScheduledJob[] = [],
+): Promise<ScheduledJob[]> => {
+  const name = await promptUntilValid(
+    promptFn,
+    'Job name: ',
+    (v) => /^[a-z0-9-]+$/.test(v),
+    'Name must be lowercase letters, numbers, and dashes only.',
+  )
+  const schedule = await promptUntilValid(
+    promptFn,
+    'Cron pattern (e.g. 0 0 9 * * *): ',
+    isValidCron,
+    'Invalid cron pattern. Use 6 space-separated fields, e.g. 0 0 9 * * *',
+  )
+  const job = ScheduledJobSchema.parse({ name, schedule, command: 'send' })
+  const jobs = [...accumulated, job]
+  const more = (await promptFn('Add another schedule? (y/N) ')).trim().toLowerCase()
+  return more === 'y' ? collectJobs(promptFn, jobs) : jobs
+}
+
+export const promptScheduleJobs = async (
+  promptFn: (question: string) => Promise<string>,
+): Promise<ScheduledJob[]> => {
+  process.stderr.write(
+    '\nConfigure your message schedule (at least one job required).\n' +
+      'Job names: lowercase letters, numbers, and dashes only.\n' +
+      'Cron pattern: 6 fields, e.g. 0 0 9 * * *  (sec min hour dom month dow)\n\n',
+  )
+  return collectJobs(promptFn)
+}
 
 export const registerSetup = (program: Command): void => {
   program
@@ -215,11 +258,14 @@ export const registerSetup = (program: Command): void => {
         saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: '' });
         saveConfig({ ...loadConfig(), recipients: [{ chatId }] });
 
-        // Step 5 — Write docker-compose.yml
+        // Step 5 — Collect schedule jobs
+        const jobs = await promptScheduleJobs((q) => promptLine(rl, q));
+
+        // Step 6 — Write docker-compose.yml
         console.warn('Writing docker-compose.yml...');
         writeFileSync(composePath(), composeTemplate(), 'utf-8');
 
-        // Step 6 — Start API container
+        // Step 7 — Start API container
         console.warn(
           'Starting OpenWA containers (this may take a minute on first run)...',
         );
@@ -410,7 +456,7 @@ export const registerSetup = (program: Command): void => {
             );
             if (preStatus.success && preStatus.data.status === 'ready') {
               console.warn('✓ WhatsApp already linked — skipping QR scan');
-              finalizeSetup(sessionId);
+              finalizeSetup(sessionId, jobs);
               return;
             }
           }
@@ -497,7 +543,7 @@ export const registerSetup = (program: Command): void => {
         connectSpinner.succeed('WhatsApp connected!');
 
         // Steps 14–16 — Persist session ID, seed defaults, done
-        finalizeSetup(sessionId);
+        finalizeSetup(sessionId, jobs);
       } catch (err) {
         console.error(err instanceof Error ? err.message : String(err));
         process.exitCode = 1;
