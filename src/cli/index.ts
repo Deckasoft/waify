@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import './env.ts'
 import { Command } from 'commander'
 import { registerInit } from './commands/init.ts'
 import { registerSetup } from './commands/setup.ts'
