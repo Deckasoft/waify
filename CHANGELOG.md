@@ -1,3 +1,10 @@
+## [0.3.9](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.8...v0.3.9) (2026-05-25)
+
+
+### Bug Fixes
+
+* **setup:** handle 409/400 on re-runs by reusing existing session ([#11](https://github.com/Deckasoft/openWa-scripts/issues/11)) ([153ea44](https://github.com/Deckasoft/openWa-scripts/commit/153ea44941ba2d813943bd7046eb29283545165d))
+
 ## [0.3.8](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.7...v0.3.8) (2026-05-24)
 
 
