@@ -5,8 +5,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { createInterface } from 'readline';
 import qrcode from 'qrcode-terminal';
-import { PNG } from 'pngjs';
-import jsQR from 'jsqr';
+import { decodeQrDataUrl, saveQrImage } from '../../core/qr.ts';
 import { z } from 'zod';
 import { composePath, promptPath, scheduleJsonPath } from '../../core/paths.ts';
 import { loadConfig, saveConfig } from '../../core/config.ts';
@@ -78,26 +77,39 @@ const fetchWithTimeout = (
 ): Promise<Response> =>
   fetch(url, { ...opts, signal: AbortSignal.timeout(timeoutMs) });
 
-const decodeQrDataUrl = (dataUrl: string): string | null => {
-  const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
-  const buffer = Buffer.from(base64, 'base64');
-  const png = PNG.sync.read(buffer);
-  const result = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
-  return result?.data ?? null;
+const renderQrInTerminal = (dataUrl: string): boolean => {
+  const raw = decodeQrDataUrl(dataUrl);
+  if (!raw) return false;
+  qrcode.generate(raw, { small: true });
+  return true;
 };
 
-const renderQrInTerminal = (dataUrl: string): Promise<void> =>
-  new Promise((resolve) => {
-    const raw = decodeQrDataUrl(dataUrl);
-    if (raw) {
-      qrcode.generate(raw, { small: true }, () => resolve());
-    } else {
-      console.warn(
-        '   (Could not decode QR image — try scanning from the API URL instead)',
-      );
-      resolve();
-    }
-  });
+const presentQr = (
+  dataUrl: string,
+  sessionId: string,
+  baseUrl: string,
+  apiKey: string,
+): void => {
+  const rendered = renderQrInTerminal(dataUrl);
+  if (!rendered) {
+    console.warn(
+      '   (Could not decode QR image — use the saved PNG or curl command below)',
+    );
+  }
+  const savedPath = saveQrImage(dataUrl);
+  if (savedPath) {
+    console.warn(`\n   QR also saved to: ${savedPath}`);
+    console.warn(`   Open it with:    open ${savedPath}`);
+  }
+  console.warn('\n   To re-fetch the QR if it expires:');
+  console.warn(
+    `     curl -s -H "X-API-Key: ${apiKey}" ${baseUrl}/api/sessions/${sessionId}/qr \\`,
+  );
+  console.warn(
+    `       | sed 's/.*"qrCode":"data:image\\/png;base64,//;s/".*//' \\`,
+  );
+  console.warn(`       | base64 -d > waify-qr.png`);
+};
 
 const composeTemplate = (): string => `services:
   openwa-api:
@@ -360,6 +372,37 @@ export const registerSetup = (program: Command): void => {
           );
         }
 
+        // Pre-check — if the session is already linked from a previous run,
+        // skip the QR poll (which would otherwise wait the full 5 min timeout
+        // because OpenWA doesn't generate a QR for ready sessions).
+        try {
+          const preStatusRes = await fetchWithTimeout(
+            `${baseUrl}/api/sessions/${sessionId}`,
+            { headers: { 'X-API-Key': openwaApiKey } },
+          );
+          if (preStatusRes.ok) {
+            const preStatus = StatusResponseSchema.safeParse(
+              await preStatusRes.json(),
+            );
+            if (preStatus.success && preStatus.data.status === 'ready') {
+              console.warn('✓ WhatsApp already linked — skipping QR scan');
+              saveConfig({ ...loadConfig(), openwaSessionId: sessionId });
+              if (!existsSync(promptPath())) {
+                savePrompt(defaultPrompt);
+              }
+              if (!existsSync(scheduleJsonPath())) {
+                saveSchedule(defaultSchedule);
+              }
+              console.warn(
+                '\n✓ All done! Run `waify send` to send your first message.',
+              );
+              return;
+            }
+          }
+        } catch {
+          // Status read failed — fall through to QR polling. No regression.
+        }
+
         // Step 12 — Wait for QR code to be ready (Chromium cold-start can take several minutes)
         const qrSpinner = createSpinner('Waiting for QR code (Chromium is starting)...');
         let qrCode: string | undefined;
@@ -393,7 +436,7 @@ export const registerSetup = (program: Command): void => {
         );
         console.warn('   Settings → Linked Devices → Link a Device\n');
         if (qrCode) {
-          await renderQrInTerminal(qrCode);
+          presentQr(qrCode, sessionId, baseUrl, openwaApiKey);
           console.warn(
             '\n   (QR expires in ~20s — re-run setup if it expires before you scan)',
           );
