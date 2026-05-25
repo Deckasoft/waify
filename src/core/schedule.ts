@@ -12,11 +12,12 @@ const CRON_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0, 7],  // day-of-week
 ]
 
+const STEP_RE = /^(\*|\d+)\/\d+$/
+const RANGE_RE = /^\d+-\d+$/
+
 const isValidCronField = (field: string, [min, max]: readonly [number, number]): boolean => {
   if (field === '*') return true
-  const stepRe = /^(\*|\d+)\/\d+$/
-  const rangeRe = /^\d+-\d+$/
-  if (stepRe.test(field) || rangeRe.test(field)) return true
+  if (STEP_RE.test(field) || RANGE_RE.test(field)) return true
   const n = Number(field)
   return Number.isInteger(n) && n >= min && n <= max
 }
