@@ -45,14 +45,14 @@ const SPINNER_FRAMES = [
 ] as const;
 
 const createSpinner = (message: string) => {
+  let current = message;
   let frame = 0;
   const interval = setInterval(() => {
-    process.stderr.write(
-      `\r${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} ${message}`,
-    );
+    process.stderr.write(`\r${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} ${current}`);
     frame++;
   }, 80).unref();
   return {
+    update: (msg: string) => { current = msg; },
     succeed: (msg: string) => {
       clearInterval(interval);
       process.stderr.write(`\r✓ ${msg}\n`);
@@ -360,12 +360,13 @@ export const registerSetup = (program: Command): void => {
           );
         }
 
-        // Step 12 — Wait for QR code to be ready (Chromium cold-start can take >2 min on first run)
-        const qrSpinner = createSpinner(
-          'Waiting for QR code (Chromium is starting)...',
-        );
+        // Step 12 — Wait for QR code to be ready (Chromium cold-start can take several minutes)
+        const qrSpinner = createSpinner('Waiting for QR code (Chromium is starting)...');
         let qrCode: string | undefined;
-        for (let attempt = 0; attempt < 60; attempt++) {
+        const qrStart = Date.now();
+        for (let attempt = 0; attempt < 150; attempt++) {
+          const elapsed = Math.round((Date.now() - qrStart) / 1000);
+          qrSpinner.update(`Waiting for QR code... (${elapsed}s / 5 min)`);
           try {
             const qrRes = await fetchWithTimeout(
               `${baseUrl}/api/sessions/${sessionId}/qr`,
