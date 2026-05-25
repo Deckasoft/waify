@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.10...v0.4.0) (2026-05-25)
+
+
+### Features
+
+* **setup:** add spinners and fix terminal QR code rendering ([#13](https://github.com/Deckasoft/openWa-scripts/issues/13)) ([1bec822](https://github.com/Deckasoft/openWa-scripts/commit/1bec8223385659fe0cdcaeca6eb5e44a6de5463c))
+
 ## [0.3.10](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.9...v0.3.10) (2026-05-25)
 
 ## [0.3.9](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.8...v0.3.9) (2026-05-25)
