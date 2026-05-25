@@ -23,7 +23,7 @@ waify send         # send your first message
 
 | Command | Description |
 |---|---|
-| `waify setup` | First-run wizard — starts Docker services, links WhatsApp, configures AI and recipient |
+| `waify setup` | First-run wizard — starts Docker services, links WhatsApp, configures AI, recipient, and schedule |
 | `waify send` | Generate a message with Gemini and send it via WhatsApp |
 | `waify preview` | Preview generated messages without sending (`-n 3` for multiple candidates) |
 | `waify tui` | Launch the interactive terminal UI (tabs: Home, History, Settings, Prompt, Schedule) |
@@ -35,7 +35,7 @@ waify send         # send your first message
 | `waify prompt edit` | Open the prompt in `$EDITOR` |
 | `waify prompt add-example <text>` | Add a few-shot example to the prompt |
 | `waify schedule list` | List scheduled jobs |
-| `waify schedule add <name> <cron>` | Add a cron job (e.g. `"0 9 * * *"`) |
+| `waify schedule add <name> <cron>` | Add a 6-field cron job (e.g. `"0 0 9 * * *"` — sec min hour dom month dow) |
 | `waify schedule remove <name>` | Remove a scheduled job |
 
 ## Configuration
@@ -60,10 +60,10 @@ All config files live in `~/.config/waify/`:
 
 ## Scheduling
 
-Use `waify schedule add` to create cron jobs. Changes require restarting the scheduler:
+Use `waify schedule add` to create cron jobs. The cron format is **6 fields** (sec min hour dom month dow). Changes require restarting the scheduler:
 
 ```bash
-waify schedule add morning "0 9 * * *"
+waify schedule add morning "0 0 9 * * *"
 docker compose -f ~/.config/waify/docker-compose.yml restart scheduler
 ```
 

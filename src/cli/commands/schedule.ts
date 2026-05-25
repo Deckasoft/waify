@@ -20,7 +20,7 @@ export const registerSchedule = (program: Command): void => {
 
   schedule
     .command('add <name> <cron>')
-    .description('Add a new job. <cron> uses 5-field crontab syntax, e.g. "0 9 * * *"')
+    .description('Add a new job. <cron> uses 6-field syntax (sec min hour dom month dow), e.g. "0 0 9 * * *"')
     .option('-c, --command <cmd>', 'command for the sender container to run', 'send')
     .action((name: string, cron: string, { command }: { command: string }) => {
       const job = ScheduledJobSchema.parse({ name, schedule: cron, command })
