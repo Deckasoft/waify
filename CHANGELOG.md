@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.4.4...v0.5.0) (2026-05-25)
+
+
+### Features
+
+* interactive schedule prompt in setup wizard ([#16](https://github.com/Deckasoft/openWa-scripts/issues/16)) ([fc18d52](https://github.com/Deckasoft/openWa-scripts/commit/fc18d526a1856724d4a8e0ba092cb35d6b08922e))
+
 ## [0.4.4](https://github.com/Deckasoft/openWa-scripts/compare/v0.4.3...v0.4.4) (2026-05-25)
 
 
