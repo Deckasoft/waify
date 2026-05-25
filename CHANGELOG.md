@@ -1,3 +1,5 @@
+## [0.3.10](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.9...v0.3.10) (2026-05-25)
+
 ## [0.3.9](https://github.com/Deckasoft/openWa-scripts/compare/v0.3.8...v0.3.9) (2026-05-25)
 
 
