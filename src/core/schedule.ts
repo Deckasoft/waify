@@ -14,7 +14,9 @@ const CRON_RANGES: ReadonlyArray<readonly [number, number]> = [
 
 const isValidCronField = (field: string, [min, max]: readonly [number, number]): boolean => {
   if (field === '*') return true
-  if (field.includes('/') || field.includes('-')) return true
+  const stepRe = /^(\*|\d+)\/\d+$/
+  const rangeRe = /^\d+-\d+$/
+  if (stepRe.test(field) || rangeRe.test(field)) return true
   const n = Number(field)
   return Number.isInteger(n) && n >= min && n <= max
 }

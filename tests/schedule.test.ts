@@ -84,4 +84,12 @@ describe('ScheduledJobSchema cron validation', () => {
   it('rejects non-numeric non-wildcard field', () => {
     expect(valid('0 0 9 * abc *')).toThrow('6-field')
   })
+
+  it('rejects invalid step expression', () => {
+    expect(valid('*/abc * * * * *')).toThrow('6-field')
+  })
+
+  it('rejects incomplete range expression', () => {
+    expect(valid('1- * * * * *')).toThrow('6-field')
+  })
 })
