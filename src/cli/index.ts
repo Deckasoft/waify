@@ -1,6 +1,4 @@
-import { config as dotenvConfig } from 'dotenv'
-import { envPath } from '../core/paths.ts'
-dotenvConfig({ path: envPath() })
+import 'dotenv/config'
 import { Command } from 'commander'
 import { registerInit } from './commands/init.ts'
 import { registerSetup } from './commands/setup.ts'
