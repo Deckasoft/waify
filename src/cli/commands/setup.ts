@@ -265,7 +265,7 @@ export const registerSetup = (program: Command): void => {
         console.warn('Writing docker-compose.yml...');
         writeFileSync(composePath(), composeTemplate(), 'utf-8');
 
-        // Step 6 — Start API container
+        // Step 7 — Start API container
         console.warn(
           'Starting OpenWA containers (this may take a minute on first run)...',
         );

@@ -1,7 +1,7 @@
 import { join } from 'path'
 import { homedir } from 'os'
 
-const dataDir = (): string =>
+export const dataDir = (): string =>
   process.env['WAIFY_DATA_DIR'] ?? join(homedir(), '.config', 'waify')
 
 export const configPath = (): string => join(dataDir(), 'config.json')
