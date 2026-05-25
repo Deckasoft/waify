@@ -368,7 +368,7 @@ export const registerSetup = (program: Command): void => {
         );
 
         // Step 11 — Start session to initiate WhatsApp engine (400 = already started, that's ok)
-        // Timeout is generous (30s) because Chromium cold-start can be slow; a TimeoutError
+        // Timeout is generous (60s) because Chromium cold-start can be slow; a TimeoutError
         // here means the engine is still loading — fall through to the QR poll loop instead
         // of hard-failing, since the QR loop waits up to 5 min anyway.
         console.warn('Starting WhatsApp engine...');
@@ -379,7 +379,7 @@ export const registerSetup = (program: Command): void => {
               method: 'POST',
               headers: { 'X-API-Key': openwaApiKey },
             },
-            30000,
+            60000,
           );
           if (!startRes.ok && startRes.status !== 400) {
             throw new Error(
@@ -387,7 +387,7 @@ export const registerSetup = (program: Command): void => {
             );
           }
         } catch (err) {
-          if (err instanceof Error && err.name === 'TimeoutError') {
+          if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
             console.warn(
               '   (Engine start is taking longer than expected — Chromium may still be loading, continuing…)',
             );
