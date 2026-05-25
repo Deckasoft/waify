@@ -368,19 +368,32 @@ export const registerSetup = (program: Command): void => {
         );
 
         // Step 11 — Start session to initiate WhatsApp engine (400 = already started, that's ok)
+        // Timeout is generous (30s) because Chromium cold-start can be slow; a TimeoutError
+        // here means the engine is still loading — fall through to the QR poll loop instead
+        // of hard-failing, since the QR loop waits up to 5 min anyway.
         console.warn('Starting WhatsApp engine...');
-        const startRes = await fetchWithTimeout(
-          `${baseUrl}/api/sessions/${sessionId}/start`,
-          {
-            method: 'POST',
-            headers: { 'X-API-Key': openwaApiKey },
-          },
-          10000,
-        );
-        if (!startRes.ok && startRes.status !== 400) {
-          throw new Error(
-            `Failed to start session: ${startRes.status} ${startRes.statusText}`,
+        try {
+          const startRes = await fetchWithTimeout(
+            `${baseUrl}/api/sessions/${sessionId}/start`,
+            {
+              method: 'POST',
+              headers: { 'X-API-Key': openwaApiKey },
+            },
+            30000,
           );
+          if (!startRes.ok && startRes.status !== 400) {
+            throw new Error(
+              `Failed to start session: ${startRes.status} ${startRes.statusText}`,
+            );
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name === 'TimeoutError') {
+            console.warn(
+              '   (Engine start is taking longer than expected — Chromium may still be loading, continuing…)',
+            );
+          } else {
+            throw err;
+          }
         }
 
         // Pre-check — if the session is already linked from a previous run,
