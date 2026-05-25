@@ -1,3 +1,10 @@
+## [0.4.2](https://github.com/Deckasoft/openWa-scripts/compare/v0.4.1...v0.4.2) (2026-05-25)
+
+
+### Bug Fixes
+
+* load secrets from envPath() and handle start-session timeout ([2a659dc](https://github.com/Deckasoft/openWa-scripts/commit/2a659dc474bd8288639cdc327f3d83dc45c92716))
+
 ## [0.4.1](https://github.com/Deckasoft/openWa-scripts/compare/v0.4.0...v0.4.1) (2026-05-25)
 
 
