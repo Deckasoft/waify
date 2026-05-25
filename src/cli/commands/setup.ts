@@ -154,6 +154,40 @@ const promptLine = (
   question: string,
 ): Promise<string> => new Promise((resolve) => rl.question(question, resolve));
 
+const promptUntilValid = async (
+  promptFn: (question: string) => Promise<string>,
+  question: string,
+  validate: (value: string) => boolean,
+  errorMsg: string,
+): Promise<string> => {
+  const answer = (await promptFn(question)).trim()
+  if (validate(answer)) return answer
+  process.stderr.write(errorMsg + '\n')
+  return promptUntilValid(promptFn, question, validate, errorMsg)
+}
+
+const collectJobs = async (
+  promptFn: (question: string) => Promise<string>,
+  accumulated: ScheduledJob[] = [],
+): Promise<ScheduledJob[]> => {
+  const name = await promptUntilValid(
+    promptFn,
+    'Job name: ',
+    (v) => /^[a-z0-9-]+$/.test(v),
+    'Name must be lowercase letters, numbers, and dashes only.',
+  )
+  const schedule = await promptUntilValid(
+    promptFn,
+    'Cron pattern (e.g. 0 0 9 * * *): ',
+    isValidCron,
+    'Invalid cron pattern. Use 6 space-separated fields, e.g. 0 0 9 * * *',
+  )
+  const job = ScheduledJobSchema.parse({ name, schedule, command: 'send' })
+  const jobs = [...accumulated, job]
+  const more = (await promptFn('Add another schedule? (y/N) ')).trim().toLowerCase()
+  return more === 'y' ? collectJobs(promptFn, jobs) : jobs
+}
+
 export const promptScheduleJobs = async (
   promptFn: (question: string) => Promise<string>,
 ): Promise<ScheduledJob[]> => {
@@ -162,35 +196,7 @@ export const promptScheduleJobs = async (
       'Job names: lowercase letters, numbers, and dashes only.\n' +
       'Cron pattern: 6 fields, e.g. 0 0 9 * * *  (sec min hour dom month dow)\n\n',
   )
-
-  const jobs: ScheduledJob[] = []
-
-  do {
-    let name = ''
-    while (!/^[a-z0-9-]+$/.test(name)) {
-      name = (await promptFn('Job name: ')).trim()
-      if (!/^[a-z0-9-]+$/.test(name)) {
-        process.stderr.write('Name must be lowercase letters, numbers, and dashes only.\n')
-      }
-    }
-
-    let schedule = ''
-    while (!isValidCron(schedule)) {
-      schedule = (await promptFn('Cron pattern (e.g. 0 0 9 * * *): ')).trim()
-      if (!isValidCron(schedule)) {
-        process.stderr.write(
-          'Invalid cron pattern. Use 6 space-separated fields, e.g. 0 0 9 * * *\n',
-        )
-      }
-    }
-
-    jobs.push(ScheduledJobSchema.parse({ name, schedule, command: 'send' }))
-
-    const more = (await promptFn('Add another schedule? (y/N) ')).trim().toLowerCase()
-    if (more !== 'y') break
-  } while (true)
-
-  return jobs
+  return collectJobs(promptFn)
 }
 
 export const registerSetup = (program: Command): void => {
