@@ -10,7 +10,7 @@ const restartScheduler = (): void => {
   })
   if (result.status !== 0) {
     console.warn(
-      'warning: scheduler restart failed — run manually: docker compose -f ~/.config/waify/docker-compose.yml restart scheduler',
+      `warning: scheduler restart failed — run manually: docker compose -f ${composePath()} restart scheduler`,
     )
   }
 }
