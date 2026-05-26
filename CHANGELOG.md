@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.5.1...v0.6.0) (2026-05-26)
+
+
+### Features
+
+* auto-restart Ofelia scheduler after schedule add/remove ([#17](https://github.com/Deckasoft/openWa-scripts/issues/17)) ([e01f360](https://github.com/Deckasoft/openWa-scripts/commit/e01f360055f1353e479b11c98e841ce203470c60))
+
 ## [0.5.1](https://github.com/Deckasoft/openWa-scripts/compare/v0.5.0...v0.5.1) (2026-05-25)
 
 # [0.5.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.4.4...v0.5.0) (2026-05-25)
