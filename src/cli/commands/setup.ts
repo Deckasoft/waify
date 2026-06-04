@@ -1,13 +1,14 @@
 import type { Command } from 'commander';
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { createInterface } from 'readline';
 import qrcode from 'qrcode-terminal';
 import { decodeQrDataUrl, saveQrImage } from '../../core/qr.ts';
 import { z } from 'zod';
-import { composePath, promptPath } from '../../core/paths.ts';
+import { composePath, dataDir, dockerfilePath, promptPath, schedulePath } from '../../core/paths.ts';
 import { loadConfig, saveConfig } from '../../core/config.ts';
 import { saveSecrets } from '../../core/secrets.ts';
 import { isValidCron, saveSchedule, ScheduledJobSchema, type ScheduledJob } from '../../core/schedule.ts';
@@ -111,7 +112,7 @@ const presentQr = (
   console.warn(`       | base64 -d > waify-qr.png`);
 };
 
-const composeTemplate = (): string => `services:
+export const composeTemplate = (): string => `services:
   openwa-api:
     image: ghcr.io/deckasoft/openwa:latest
     ports:
@@ -132,11 +133,81 @@ const composeTemplate = (): string => `services:
       - REDIS_BUILTIN=false
     volumes:
       - openwa-data:/app/data
+    networks:
+      - waify-network
+    restart: unless-stopped
+
+  scheduler:
+    image: mcuadros/ofelia:latest
+    depends_on:
+      - openwa-api
+    command: daemon --config=/etc/ofelia/config.ini
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${schedulePath()}:/etc/ofelia/config.ini:ro
+    networks:
+      - waify-network
     restart: unless-stopped
 
 volumes:
   openwa-data:
+
+networks:
+  waify-network:
+    name: waify-network
 `;
+
+// Pinned so the sender container runs the same waify version as the host CLI.
+// Resolves package.json relative to this module: dist/cli/index.js (bundled,
+// two levels up) and src/cli/commands/setup.ts (tsx dev, three levels up).
+const waifyVersion = (): string => {
+  const dir = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(dir, '..', '..', 'package.json'),
+    join(dir, '..', '..', '..', 'package.json'),
+  ];
+  const found = candidates.find((p) => existsSync(p));
+  if (!found) return 'latest';
+  try {
+    return z.object({ version: z.string() }).parse(JSON.parse(readFileSync(found, 'utf-8'))).version;
+  } catch {
+    return 'latest';
+  }
+};
+
+// The sender image Ofelia spawns each tick: just the published waify CLI.
+// Nothing is COPYed in, so the build context (the config dir) is irrelevant.
+const dockerfileTemplate = (version: string): string => `FROM node:22-alpine
+RUN npm install -g @deckasoft/waify@${version}
+ENTRYPOINT ["waify"]
+`;
+
+const buildSenderImage = (): void => {
+  console.warn('Writing Dockerfile and building sender image...');
+  writeFileSync(dockerfilePath(), dockerfileTemplate(waifyVersion()), 'utf-8');
+  const result = spawnSync(
+    'docker',
+    ['build', '-t', 'openwa-scripts-sender:latest', '-f', dockerfilePath(), dataDir()],
+    { stdio: 'inherit' },
+  );
+  if (result.status !== 0) {
+    console.warn(
+      'warning: sender image build failed — scheduled sends will not run until it is built.',
+    );
+  }
+};
+
+const startScheduler = (): void => {
+  console.warn('Starting scheduler...');
+  const result = spawnSync('docker', ['compose', '-f', composePath(), 'up', '-d'], {
+    stdio: 'inherit',
+  });
+  if (result.status !== 0) {
+    console.warn(
+      `warning: failed to start scheduler — run manually: docker compose -f ${composePath()} up -d`,
+    );
+  }
+};
 
 const finalizeSetup = (sessionId: string, jobs: ScheduledJob[]): void => {
   saveConfig({ ...loadConfig(), openwaSessionId: sessionId });
@@ -144,6 +215,10 @@ const finalizeSetup = (sessionId: string, jobs: ScheduledJob[]): void => {
     savePrompt(defaultPrompt);
   }
   saveSchedule({ jobs });
+  // saveSchedule wrote ofelia.ini; now build the sender image and bring the
+  // scheduler online so the configured jobs actually fire.
+  buildSenderImage();
+  startScheduler();
   console.warn('\n✓ All done! Run `waify send` to send your first message.');
 };
 

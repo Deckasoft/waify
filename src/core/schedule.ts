@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname } from 'path'
 import { z } from 'zod'
-import { dataDir, envPath, scheduleJsonPath as getScheduleJsonPath, schedulePath } from './paths.ts'
+import { dataDir, scheduleJsonPath as getScheduleJsonPath, schedulePath } from './paths.ts'
 
 const CRON_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0, 59], // seconds
@@ -74,15 +74,19 @@ export type OfeliaRuntime = {
   image: string
   network: string
   hostDataDir: string
-  hostEnvFile: string
+  apiBaseUrl: string
 }
 
 const ofeliaRuntime = (): OfeliaRuntime => ({
   image: process.env['WAIFY_SENDER_IMAGE'] ?? 'openwa-scripts-sender:latest',
   network: process.env['WAIFY_NETWORK'] ?? 'waify-network',
   hostDataDir: process.env['WAIFY_HOST_DATA_DIR'] ?? dataDir(),
-  hostEnvFile: process.env['WAIFY_HOST_ENV_FILE'] ?? envPath(),
+  apiBaseUrl: process.env['WAIFY_API_INTERNAL_URL'] ?? 'http://openwa-api:2785',
 })
+
+// Ofelia parses `environment = KEY=VALUE`, so the `=` inside the value must be
+// escaped as `\=` to avoid being read as the INI key/value separator.
+const renderEnv = (key: string, value: string): string => `environment = ${key}\\=${value}`
 
 const renderJob = (job: ScheduledJob, runtime: OfeliaRuntime): string =>
   [
@@ -90,9 +94,16 @@ const renderJob = (job: ScheduledJob, runtime: OfeliaRuntime): string =>
     `schedule = ${job.schedule}`,
     `image = ${runtime.image}`,
     `network = ${runtime.network}`,
+    // The sender image is built locally, so Ofelia must not try to pull it
+    // (default Pull=true → 404 pull access denied). See mcuadros/ofelia#55.
+    `pull = false`,
     `command = ${job.command}`,
+    // WAIFY_DATA_DIR points config/.env resolution at the mounted /data dir;
+    // OPENWA_BASE_URL reaches the API by service name over waify-network
+    // (the mounted config.json says localhost, which is wrong inside a container).
+    renderEnv('WAIFY_DATA_DIR', '/data'),
+    renderEnv('OPENWA_BASE_URL', runtime.apiBaseUrl),
     `volume = ${runtime.hostDataDir}:/data`,
-    `volume = ${runtime.hostEnvFile}:/app/.env:ro`,
   ].join('\n')
 
 export const renderOfeliaIni = (schedule: Schedule, runtime: OfeliaRuntime = ofeliaRuntime()): string => {
