@@ -1,3 +1,10 @@
+## [0.6.2](https://github.com/Deckasoft/openWa-scripts/compare/v0.6.1...v0.6.2) (2026-06-04)
+
+
+### Bug Fixes
+
+* don't backslash-escape `=` in ofelia.ini environment lines ([#20](https://github.com/Deckasoft/openWa-scripts/issues/20)) ([658c930](https://github.com/Deckasoft/openWa-scripts/commit/658c930af51723fcc480895e8bbcdbbe3eb2ecc6))
+
 ## [0.6.1](https://github.com/Deckasoft/openWa-scripts/compare/v0.6.0...v0.6.1) (2026-06-04)
 
 
