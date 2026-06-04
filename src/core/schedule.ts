@@ -84,9 +84,11 @@ const ofeliaRuntime = (): OfeliaRuntime => ({
   apiBaseUrl: process.env['WAIFY_API_INTERNAL_URL'] ?? 'http://openwa-api:2785',
 })
 
-// Ofelia parses `environment = KEY=VALUE`, so the `=` inside the value must be
-// escaped as `\=` to avoid being read as the INI key/value separator.
-const renderEnv = (key: string, value: string): string => `environment = ${key}\\=${value}`
+// Ofelia parses INI with gcfg, which splits each line on the FIRST `=` only, so
+// the `=` between env KEY and VALUE needs no escaping. A backslash here is a hard
+// gcfg parse error ("unquoted '\' must be followed by ...") that crash-loops the
+// scheduler — emit the value verbatim.
+const renderEnv = (key: string, value: string): string => `environment = ${key}=${value}`
 
 const renderJob = (job: ScheduledJob, runtime: OfeliaRuntime): string =>
   [

@@ -42,20 +42,25 @@ describe('renderOfeliaIni default paths', () => {
     expect(ini).toContain('pull = false')
   })
 
-  it('points WAIFY_DATA_DIR at /data via an escaped environment line', () => {
+  it('points WAIFY_DATA_DIR at /data via an environment line', () => {
     const ini = renderOfeliaIni(makeSchedule())
-    expect(ini).toContain('environment = WAIFY_DATA_DIR\\=/data')
+    expect(ini).toContain('environment = WAIFY_DATA_DIR=/data')
   })
 
   it('reaches the API by service name via OPENWA_BASE_URL', () => {
     const ini = renderOfeliaIni(makeSchedule())
-    expect(ini).toContain('environment = OPENWA_BASE_URL\\=http://openwa-api:2785')
+    expect(ini).toContain('environment = OPENWA_BASE_URL=http://openwa-api:2785')
   })
 
   it('respects WAIFY_API_INTERNAL_URL override', () => {
     process.env['WAIFY_API_INTERNAL_URL'] = 'http://api:9000'
     const ini = renderOfeliaIni(makeSchedule())
-    expect(ini).toContain('environment = OPENWA_BASE_URL\\=http://api:9000')
+    expect(ini).toContain('environment = OPENWA_BASE_URL=http://api:9000')
+  })
+
+  it('does not emit backslash escapes in environment lines (gcfg rejects them)', () => {
+    const ini = renderOfeliaIni(makeSchedule())
+    expect(ini).not.toContain('\\=')
   })
 })
 
