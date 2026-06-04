@@ -158,12 +158,18 @@ networks:
 `;
 
 // Pinned so the sender container runs the same waify version as the host CLI.
-// Resolves package.json relative to this module in both tsx-dev and bundled dist.
+// Resolves package.json relative to this module: dist/cli/index.js (bundled,
+// two levels up) and src/cli/commands/setup.ts (tsx dev, three levels up).
 const waifyVersion = (): string => {
+  const dir = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(dir, '..', '..', 'package.json'),
+    join(dir, '..', '..', '..', 'package.json'),
+  ];
+  const found = candidates.find((p) => existsSync(p));
+  if (!found) return 'latest';
   try {
-    const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
-    const pkg = z.object({ version: z.string() }).parse(JSON.parse(readFileSync(pkgPath, 'utf-8')));
-    return pkg.version;
+    return z.object({ version: z.string() }).parse(JSON.parse(readFileSync(found, 'utf-8'))).version;
   } catch {
     return 'latest';
   }

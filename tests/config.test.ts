@@ -14,4 +14,9 @@ describe('config OPENWA_BASE_URL override', () => {
     process.env['OPENWA_BASE_URL'] = 'http://openwa-api:2785'
     expect(defaultConfig().openwaBaseUrl).toBe('http://openwa-api:2785')
   })
+
+  it('throws a validation error if OPENWA_BASE_URL is not a valid URL', () => {
+    process.env['OPENWA_BASE_URL'] = 'not-a-url'
+    expect(() => defaultConfig()).toThrow()
+  })
 })
