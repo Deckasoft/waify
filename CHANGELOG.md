@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/Deckasoft/openWa-scripts/compare/v0.6.0...v0.6.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* wire up Ofelia scheduling end-to-end ([#19](https://github.com/Deckasoft/openWa-scripts/issues/19)) ([90a2cb0](https://github.com/Deckasoft/openWa-scripts/commit/90a2cb09f32e9e243db5b6d12b2bf9ddcf17e816))
+
 # [0.6.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.5.1...v0.6.0) (2026-05-26)
 
 
