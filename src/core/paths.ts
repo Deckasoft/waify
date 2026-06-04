@@ -19,4 +19,6 @@ export const envPath = (): string =>
 
 export const composePath = (): string => join(dataDir(), 'docker-compose.yml')
 
+export const dockerfilePath = (): string => join(dataDir(), 'Dockerfile')
+
 export const qrImagePath = (): string => join(dataDir(), 'qr.png')

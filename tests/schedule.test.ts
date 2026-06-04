@@ -11,8 +11,8 @@ describe('renderOfeliaIni default paths', () => {
   afterEach(() => {
     delete process.env['WAIFY_DATA_DIR']
     delete process.env['WAIFY_HOST_DATA_DIR']
-    delete process.env['WAIFY_HOST_ENV_FILE']
     delete process.env['WAIFY_ENV_PATH']
+    delete process.env['WAIFY_API_INTERNAL_URL']
   })
 
   it('defaults hostDataDir to ~/.config/waify', () => {
@@ -20,16 +20,10 @@ describe('renderOfeliaIni default paths', () => {
     expect(ini).toContain(`volume = ${join(homedir(), '.config', 'waify')}:/data`)
   })
 
-  it('defaults hostEnvFile to ~/.config/waify/.env', () => {
-    const ini = renderOfeliaIni(makeSchedule())
-    expect(ini).toContain(`volume = ${join(homedir(), '.config', 'waify', '.env')}:/app/.env:ro`)
-  })
-
-  it('respects WAIFY_DATA_DIR for both defaults', () => {
+  it('respects WAIFY_DATA_DIR for the /data mount', () => {
     process.env['WAIFY_DATA_DIR'] = '/tmp/waify-test'
     const ini = renderOfeliaIni(makeSchedule())
     expect(ini).toContain('volume = /tmp/waify-test:/data')
-    expect(ini).toContain('volume = /tmp/waify-test/.env:/app/.env:ro')
   })
 
   it('respects WAIFY_HOST_DATA_DIR override', () => {
@@ -38,10 +32,30 @@ describe('renderOfeliaIni default paths', () => {
     expect(ini).toContain('volume = /custom/data:/data')
   })
 
-  it('respects WAIFY_HOST_ENV_FILE override', () => {
-    process.env['WAIFY_HOST_ENV_FILE'] = '/custom/.env'
+  it('no longer mounts a separate /app/.env (it lives in /data)', () => {
     const ini = renderOfeliaIni(makeSchedule())
-    expect(ini).toContain('volume = /custom/.env:/app/.env:ro')
+    expect(ini).not.toContain('/app/.env')
+  })
+
+  it('disables image pull so the locally-built sender image is used', () => {
+    const ini = renderOfeliaIni(makeSchedule())
+    expect(ini).toContain('pull = false')
+  })
+
+  it('points WAIFY_DATA_DIR at /data via an escaped environment line', () => {
+    const ini = renderOfeliaIni(makeSchedule())
+    expect(ini).toContain('environment = WAIFY_DATA_DIR\\=/data')
+  })
+
+  it('reaches the API by service name via OPENWA_BASE_URL', () => {
+    const ini = renderOfeliaIni(makeSchedule())
+    expect(ini).toContain('environment = OPENWA_BASE_URL\\=http://openwa-api:2785')
+  })
+
+  it('respects WAIFY_API_INTERNAL_URL override', () => {
+    process.env['WAIFY_API_INTERNAL_URL'] = 'http://api:9000'
+    const ini = renderOfeliaIni(makeSchedule())
+    expect(ini).toContain('environment = OPENWA_BASE_URL\\=http://api:9000')
   })
 })
 

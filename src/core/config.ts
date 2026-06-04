@@ -19,13 +19,21 @@ export const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>
 
-export const defaultConfig = (): Config => ConfigSchema.parse({})
+// OPENWA_BASE_URL lets a containerized run reach the API by service name
+// (e.g. http://openwa-api:2785). A schema default is insufficient because
+// config.json already contains openwaBaseUrl, so the default never fires.
+const withEnvOverrides = (config: Config): Config => ({
+  ...config,
+  openwaBaseUrl: process.env['OPENWA_BASE_URL'] ?? config.openwaBaseUrl,
+})
+
+export const defaultConfig = (): Config => withEnvOverrides(ConfigSchema.parse({}))
 
 export const loadConfig = (): Config => {
   const path = configPath()
   if (!existsSync(path)) return defaultConfig()
   const raw = readFileSync(path, 'utf-8')
-  return ConfigSchema.parse(JSON.parse(raw))
+  return withEnvOverrides(ConfigSchema.parse(JSON.parse(raw)))
 }
 
 export const saveConfig = (config: Config): void => {

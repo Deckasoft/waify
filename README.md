@@ -60,7 +60,9 @@ All config files live in `~/.config/waify/`:
 
 ## Scheduling
 
-Use `waify schedule add` to create cron jobs. The cron format is **6 fields** (sec min hour dom month dow). Changes require restarting the scheduler:
+Scheduling runs on an [Ofelia](https://github.com/mcuadros/ofelia) `scheduler` container that fires a transient sender container per job tick. `waify setup` generates the `Dockerfile`, builds the `openwa-scripts-sender:latest` image locally, and starts the scheduler — so scheduling works out of the box after setup.
+
+Use `waify schedule add` to create cron jobs. The cron format is **6 fields** (sec min hour dom month dow). Changes restart the scheduler automatically; to restart manually:
 
 ```bash
 waify schedule add morning "0 0 9 * * *"
