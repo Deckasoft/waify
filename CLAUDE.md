@@ -69,7 +69,7 @@ All user data lives in `~/.config/waify/` (or `$WAIFY_DATA_DIR` if set):
 - sets `OPENWA_BASE_URL=http://openwa-api:2785` so the send reaches the API by service name over `waify-network` (the mounted `config.json` says `localhost`, which is wrong inside a container — `config.ts` applies this env override on load).
 - sets `pull = false` so Ofelia uses the locally-built image instead of trying to pull it (default `Pull=true` → `404 pull access denied`).
 
-Env values are written as `environment = KEY\=VALUE` — the `=` must be escaped for Ofelia's INI parser.
+Env lines are written verbatim as `environment = KEY=VALUE`. Ofelia parses INI with gcfg, which splits on the **first** `=` only, so the `=` in the value needs **no** escaping — a backslash (`\=`) is a hard gcfg parse error that crash-loops the scheduler.
 
 After editing the schedule, restart Ofelia to pick up changes:
 
