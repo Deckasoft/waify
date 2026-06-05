@@ -1,3 +1,21 @@
+# [1.0.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.7.0...v1.0.0) (2026-06-05)
+
+
+* feat!: read CLI version from package.json and cut 1.0 ([#22](https://github.com/Deckasoft/openWa-scripts/issues/22)) ([6a9ea10](https://github.com/Deckasoft/openWa-scripts/commit/6a9ea10c622862646641a486f9607787bdcf5295))
+
+
+### BREAKING CHANGES
+
+* first stable 1.0.0 release.
+
+* docs: document release workflow and fix stale README references
+
+- CLAUDE.md: add src/core/version.ts to the architecture list and a
+  "Releases & versioning" section (semantic-release + squash-merge caveat).
+- README: correct OpenWA links to the deckasoft/openwa fork actually run
+  (ghcr.io/deckasoft/openwa), bump Node 20+ -> 22+, and list language/
+  timezone in config.json plus the generated Dockerfile/ofelia.ini.
+
 # [0.7.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.6.2...v0.7.0) (2026-06-05)
 
 
