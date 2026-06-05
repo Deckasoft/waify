@@ -24,7 +24,6 @@ const buildFields = (): Field[] => {
   return [
     { key: 'openwaBaseUrl', label: 'openwaBaseUrl', group: 'config', kind: 'text', value: cfg.openwaBaseUrl, secret: false },
     { key: 'openwaSessionId', label: 'openwaSessionId', group: 'config', kind: 'text', value: cfg.openwaSessionId ?? '', secret: false },
-    { key: 'openwaApiKey', label: 'openwaApiKey', group: 'config', kind: 'text', value: cfg.openwaApiKey ?? '', secret: false },
     { key: 'recipientChatId', label: 'recipients[0].chatId', group: 'recipient', kind: 'text', value: cfg.recipients[0]?.chatId ?? '', secret: false },
     { key: 'language', label: 'language', group: 'config', kind: 'language', value: cfg.language, secret: false },
     { key: 'timezone', label: 'timezone', group: 'config', kind: 'timezone', value: cfg.timezone, secret: false },
