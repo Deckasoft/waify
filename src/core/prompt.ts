@@ -43,15 +43,47 @@ export const savePrompt = (prompt: Prompt): void => {
   writeFileSync(path, JSON.stringify(prompt, null, 2) + '\n', 'utf-8')
 }
 
+export type PartOfDay = 'morning' | 'afternoon' | 'evening' | 'night'
+
+export const partOfDay = (hour: number): PartOfDay => {
+  if (hour >= 5 && hour < 12) return 'morning'
+  if (hour >= 12 && hour < 18) return 'afternoon'
+  if (hour >= 18 && hour < 22) return 'evening'
+  return 'night'
+}
+
+// Language-neutral local-time context (e.g. "22:00 (night)") for the recipient's
+// timezone, so the model's greeting matches the actual time of day instead of
+// guessing — a night send must never read as "good morning".
+export const describeTimeOfDay = (timezone: string, now: Date = new Date()): string => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
+  const at = (type: string): string => parts.find((p) => p.type === type)?.value ?? '00'
+  return `${at('hour')}:${at('minute')} (${partOfDay(Number(at('hour')))})`
+}
+
 export type GenerateMessageArgs = {
   provider: AIProvider
   prompt: Prompt
   language: string
+  timezone: string
+  now?: Date
 }
 
 export const generateMessage = async ({
   provider,
   prompt,
   language,
+  timezone,
+  now,
 }: GenerateMessageArgs): Promise<string> =>
-  provider.generateMessage({ systemPrompt: prompt.systemPrompt, examples: prompt.examples, language })
+  provider.generateMessage({
+    systemPrompt: prompt.systemPrompt,
+    examples: prompt.examples,
+    language,
+    timeContext: describeTimeOfDay(timezone, now),
+  })

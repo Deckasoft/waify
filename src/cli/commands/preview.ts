@@ -17,7 +17,9 @@ export const registerPreview = (program: Command): void => {
       const n = Math.max(1, parseInt(count, 10) || 1)
 
       const messages = await Promise.all(
-        Array.from({ length: n }, () => generateMessage({ provider, prompt, language: config.language })),
+        Array.from({ length: n }, () =>
+          generateMessage({ provider, prompt, language: config.language, timezone: config.timezone }),
+        ),
       )
       messages.forEach((m, i) => {
         if (n > 1) console.warn(`--- candidate ${i + 1} ---`)
