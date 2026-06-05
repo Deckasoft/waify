@@ -4,9 +4,13 @@ import { defaultPrompt } from '../src/core/prompt.ts'
 const mockGenerateContent = vi.fn()
 
 vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn().mockImplementation(() => ({
-    models: { generateContent: mockGenerateContent },
-  })),
+  // A regular function (not an arrow) so `new GoogleGenAI()` works under vitest 4,
+  // which constructs mock implementations via Reflect.construct — arrow functions
+  // have no [[Construct]] and throw "is not a constructor". Returning an object
+  // from the constructor makes `new` resolve to that object.
+  GoogleGenAI: vi.fn(function () {
+    return { models: { generateContent: mockGenerateContent } }
+  }),
 }))
 
 describe('generateMessage', () => {
