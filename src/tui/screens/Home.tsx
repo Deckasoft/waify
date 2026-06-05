@@ -40,7 +40,7 @@ export const Home = () => {
     try {
       const prompt = loadPrompt()
       const provider = createGeminiProvider({ apiKey: secrets.GEMINI_API_KEY })
-      const text = await generateMessage({ provider, prompt, language: cfg.language })
+      const text = await generateMessage({ provider, prompt, language: cfg.language, timezone: cfg.timezone })
       setState({ kind: 'preview', text })
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
@@ -62,7 +62,7 @@ export const Home = () => {
     try {
       const prompt = loadPrompt()
       const provider = createGeminiProvider({ apiKey: secrets.GEMINI_API_KEY ?? '' })
-      const text = await generateMessage({ provider, prompt, language: cfg.language })
+      const text = await generateMessage({ provider, prompt, language: cfg.language, timezone: cfg.timezone })
       await sendMessage({
         baseUrl: cfg.openwaBaseUrl,
         apiKey: secrets.OPENWA_API_KEY ?? '',

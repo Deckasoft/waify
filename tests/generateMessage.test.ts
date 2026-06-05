@@ -20,7 +20,13 @@ describe('generateMessage', () => {
     const { generateMessage } = await import('../src/core/prompt.ts')
     const { createGeminiProvider } = await import('../src/core/providers/gemini.ts')
     const provider = createGeminiProvider({ apiKey: 'test-key' })
-    const result = await generateMessage({ provider, prompt: defaultPrompt, language: 'Spanish' })
+    const result = await generateMessage({
+      provider,
+      prompt: defaultPrompt,
+      language: 'Spanish',
+      timezone: 'America/Guayaquil',
+      now: new Date('2026-06-06T04:00:00Z'), // 23:00 local — night
+    })
 
     expect(result).toBe('¡Hoy es un gran día para ti!')
 
@@ -31,13 +37,33 @@ describe('generateMessage', () => {
     expect(instr).toContain('Here are examples')
   })
 
+  it('injects the recipient time of day so greetings match the clock', async () => {
+    mockGenerateContent.mockResolvedValue({ text: 'Buenas noches' })
+
+    const { generateMessage } = await import('../src/core/prompt.ts')
+    const { createGeminiProvider } = await import('../src/core/providers/gemini.ts')
+    const provider = createGeminiProvider({ apiKey: 'k' })
+    await generateMessage({
+      provider,
+      prompt: defaultPrompt,
+      language: 'Spanish',
+      timezone: 'America/Guayaquil',
+      now: new Date('2026-06-06T04:00:00Z'), // 23:00 local — night
+    })
+
+    const callArgs = mockGenerateContent.mock.calls[0]?.[0] as Record<string, unknown>
+    const instr = (callArgs['config'] as Record<string, string>)['systemInstruction']
+    expect(instr).toContain('Right now it is 23:00 (night) for the recipient.')
+    expect(instr).toContain('Never greet with the wrong part of day')
+  })
+
   it('injects the chosen language into the system instruction', async () => {
     mockGenerateContent.mockResolvedValue({ text: 'Have a great day!' })
 
     const { generateMessage } = await import('../src/core/prompt.ts')
     const { createGeminiProvider } = await import('../src/core/providers/gemini.ts')
     const provider = createGeminiProvider({ apiKey: 'k' })
-    await generateMessage({ provider, prompt: defaultPrompt, language: 'English' })
+    await generateMessage({ provider, prompt: defaultPrompt, language: 'English', timezone: 'UTC' })
 
     const callArgs = mockGenerateContent.mock.calls[0]?.[0] as Record<string, unknown>
     const instr = (callArgs['config'] as Record<string, string>)['systemInstruction']
@@ -50,9 +76,9 @@ describe('generateMessage', () => {
     const { generateMessage } = await import('../src/core/prompt.ts')
     const { createGeminiProvider } = await import('../src/core/providers/gemini.ts')
     const provider = createGeminiProvider({ apiKey: 'k' })
-    await expect(generateMessage({ provider, prompt: defaultPrompt, language: 'Spanish' })).rejects.toThrow(
-      'Unexpected empty response',
-    )
+    await expect(
+      generateMessage({ provider, prompt: defaultPrompt, language: 'Spanish', timezone: 'UTC' }),
+    ).rejects.toThrow('Unexpected empty response')
   })
 
   it('throws when the API call fails', async () => {
@@ -61,8 +87,8 @@ describe('generateMessage', () => {
     const { generateMessage } = await import('../src/core/prompt.ts')
     const { createGeminiProvider } = await import('../src/core/providers/gemini.ts')
     const provider = createGeminiProvider({ apiKey: 'k' })
-    await expect(generateMessage({ provider, prompt: defaultPrompt, language: 'Spanish' })).rejects.toThrow(
-      'API error',
-    )
+    await expect(
+      generateMessage({ provider, prompt: defaultPrompt, language: 'Spanish', timezone: 'UTC' }),
+    ).rejects.toThrow('API error')
   })
 })

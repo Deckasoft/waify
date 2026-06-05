@@ -83,6 +83,15 @@ waify uses [OpenWA](https://github.com/deckasoft/openwa) as its WhatsApp API ser
 - [ ] Additional transport adapters (Telegram, SMS)
 - [ ] NX monorepo with the [deckasoft/openwa](https://github.com/deckasoft/openwa) fork
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for local
+setup, the branch/PR workflow, and our commit conventions — note that PR titles
+must be [Conventional Commits](https://www.conventionalcommits.org/), since they
+drive the automated release. Please also read our
+[Code of Conduct](CODE_OF_CONDUCT.md). For security issues, see
+[SECURITY.md](SECURITY.md) — do not open a public issue.
+
 ## License
 
 MIT — see [LICENSE](LICENSE)

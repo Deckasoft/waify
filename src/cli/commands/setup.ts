@@ -9,6 +9,7 @@ import { decodeQrDataUrl, saveQrImage } from '../../core/qr.ts';
 import { z } from 'zod';
 import { composePath, dataDir, dockerfilePath, promptPath } from '../../core/paths.ts';
 import { readWaifyVersion } from '../../core/version.ts';
+import { schedulerUpArgs } from '../../core/scheduler.ts';
 import { writeCompose } from '../../core/compose.ts';
 import { detectTimezone, LANGUAGES, loadConfig, saveConfig, supportedTimezones } from '../../core/config.ts';
 import { saveSecrets } from '../../core/secrets.ts';
@@ -145,13 +146,17 @@ const buildSenderImage = (): void => {
 
 const startScheduler = (): void => {
   console.warn('Starting scheduler...');
-  const result = spawnSync('docker', ['compose', '-f', composePath(), 'up', '-d'], {
-    stdio: 'inherit',
-  });
+  // Force-recreate via the shared helper so re-running setup reloads the freshly
+  // written ofelia.ini. Plain `up -d` is a no-op for an already-running
+  // scheduler (the bind-mounted ofelia.ini change is invisible to compose), which
+  // silently strands the scheduler on stale jobs.
+  const args = schedulerUpArgs(composePath());
+  const result = spawnSync('docker', args, { stdio: 'inherit' });
   if (result.status !== 0) {
-    console.warn(
-      `warning: failed to start scheduler — run manually: docker compose -f ${composePath()} up -d`,
-    );
+    // Quote args with spaces so the printed command is copy-paste safe even when
+    // the data dir lives under a path like /Users/John Doe/.
+    const printable = args.map((a) => (a.includes(' ') ? `'${a}'` : a)).join(' ');
+    console.warn(`warning: failed to start scheduler — run manually: docker ${printable}`);
   }
 };
 
