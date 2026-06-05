@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.6.2...v0.7.0) (2026-06-05)
+
+
+### Features
+
+* message language, timezone-aware schedule builder, TUI restart + disconnect ([#21](https://github.com/Deckasoft/openWa-scripts/issues/21)) ([ed230fc](https://github.com/Deckasoft/openWa-scripts/commit/ed230fc3db08a68da146b642a739aa4d98531653))
+
 ## [0.6.2](https://github.com/Deckasoft/openWa-scripts/compare/v0.6.1...v0.6.2) (2026-06-04)
 
 
