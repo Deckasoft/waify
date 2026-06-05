@@ -111,9 +111,16 @@ export const Settings = ({ onFocusChange }: Props) => {
       setMode('language-other')
       return
     }
+    const lang = value.trim()
+    if (!lang) {
+      // Empty custom submit → cancel without changing the saved language.
+      setMode('none')
+      setDraft('')
+      return
+    }
     try {
-      saveConfigField('language', value)
-      finish(`saved language → ${value}`)
+      saveConfigField('language', lang)
+      finish(`saved language → ${lang}`)
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err))
       setMode('none')
@@ -128,7 +135,11 @@ export const Settings = ({ onFocusChange }: Props) => {
       writeCompose(value)
       setMessage(`timezone → ${value} · restarting scheduler…`)
       const res = await restartScheduler()
-      setMessage(res.ok ? `timezone → ${value} · scheduler restarted` : 'timezone saved · scheduler restart failed')
+      setMessage(
+        res.ok
+          ? `timezone → ${value} · scheduler restarted`
+          : `timezone saved · restart failed — run: docker compose up -d --force-recreate scheduler`,
+      )
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err))
     }

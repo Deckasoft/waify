@@ -7,6 +7,9 @@ export type StopSessionArgs = {
 // Disconnect WhatsApp by stopping the OpenWA session. Reconnecting later means
 // re-running `waify setup` (scan the QR again).
 export const stopSession = async ({ baseUrl, apiKey, sessionId }: StopSessionArgs): Promise<void> => {
+  if (!sessionId) {
+    throw new Error('No active session to disconnect.')
+  }
   const response = await fetch(`${baseUrl}/api/sessions/${sessionId}/stop`, {
     method: 'POST',
     headers: { 'X-API-Key': apiKey },

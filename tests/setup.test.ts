@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect } from 'vitest'
-import { promptScheduleJobs } from '../src/cli/commands/setup.ts'
+import { promptLanguage, promptScheduleJobs } from '../src/cli/commands/setup.ts'
 import { composeTemplate } from '../src/core/compose.ts'
 
 const createMockPrompt = (answers: string[]) => {
@@ -52,6 +52,28 @@ describe('promptScheduleJobs', () => {
     const promptFn = createMockPrompt(['my-job', '9am', '09:00', '1', 'n'])
     const jobs = await promptScheduleJobs(promptFn)
     expect(jobs[0]!.schedule).toBe('0 0 9 * * *')
+  })
+})
+
+describe('promptLanguage', () => {
+  it('defaults to Spanish on empty input', async () => {
+    expect(await promptLanguage(createMockPrompt(['']))).toBe('Spanish')
+  })
+
+  it('selects a curated option by number', async () => {
+    expect(await promptLanguage(createMockPrompt(['2']))).toBe('English')
+  })
+
+  it('falls back to Spanish on out-of-range numbers (does not save "99")', async () => {
+    expect(await promptLanguage(createMockPrompt(['99']))).toBe('Spanish')
+  })
+
+  it('takes a custom language via the Other option', async () => {
+    expect(await promptLanguage(createMockPrompt(['7', 'Catalan']))).toBe('Catalan')
+  })
+
+  it('accepts a directly typed language name', async () => {
+    expect(await promptLanguage(createMockPrompt(['Japanese']))).toBe('Japanese')
   })
 })
 

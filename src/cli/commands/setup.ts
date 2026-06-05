@@ -212,12 +212,17 @@ export const promptLanguage = async (
   const answer = (await promptFn(`Choose [1-${LANGUAGES.length + 1}] (default 1 — Spanish): `)).trim()
   if (answer === '') return 'Spanish'
   const n = Number(answer)
-  if (Number.isInteger(n) && n >= 1 && n <= LANGUAGES.length) return LANGUAGES[n - 1]!
-  if (n === LANGUAGES.length + 1) {
-    const custom = (await promptFn('Language name: ')).trim()
-    return custom || 'Spanish'
+  if (Number.isInteger(n)) {
+    // A number is a menu choice; out-of-range falls back to the default
+    // (so a stray '99' isn't saved as the language name).
+    if (n >= 1 && n <= LANGUAGES.length) return LANGUAGES[n - 1]!
+    if (n === LANGUAGES.length + 1) {
+      const custom = (await promptFn('Language name: ')).trim()
+      return custom || 'Spanish'
+    }
+    return 'Spanish'
   }
-  // Allow typing a language name directly.
+  // Non-numeric input is treated as a language name typed directly.
   return answer
 }
 

@@ -1,7 +1,7 @@
 import { Box, Text, useInput } from 'ink'
 import Spinner from 'ink-spinner'
 import { useState } from 'react'
-import { loadConfig, assertConfigReady } from '../../core/config.ts'
+import { loadConfig, saveConfig, assertConfigReady } from '../../core/config.ts'
 import { tryLoadSecrets } from '../../core/secrets.ts'
 import { loadPrompt, generateMessage } from '../../core/prompt.ts'
 import { createGeminiProvider } from '../../core/providers/gemini.ts'
@@ -87,6 +87,8 @@ export const Home = () => {
         apiKey: secrets.OPENWA_API_KEY ?? '',
         sessionId: cfg.openwaSessionId ?? '',
       })
+      // Clear the stale session id so status doesn't falsely show "ok" until reconnect.
+      saveConfig({ ...cfg, openwaSessionId: null })
       setState({ kind: 'disconnected' })
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
