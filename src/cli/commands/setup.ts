@@ -1,14 +1,14 @@
 import type { Command } from 'commander';
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { createInterface } from 'readline';
 import qrcode from 'qrcode-terminal';
 import { decodeQrDataUrl, saveQrImage } from '../../core/qr.ts';
 import { z } from 'zod';
 import { composePath, dataDir, dockerfilePath, promptPath } from '../../core/paths.ts';
+import { readWaifyVersion } from '../../core/version.ts';
 import { writeCompose } from '../../core/compose.ts';
 import { detectTimezone, LANGUAGES, loadConfig, saveConfig, supportedTimezones } from '../../core/config.ts';
 import { saveSecrets } from '../../core/secrets.ts';
@@ -121,24 +121,6 @@ const presentQr = (
   console.warn(`       | base64 -d > waify-qr.png`);
 };
 
-// Pinned so the sender container runs the same waify version as the host CLI.
-// Resolves package.json relative to this module: dist/cli/index.js (bundled,
-// two levels up) and src/cli/commands/setup.ts (tsx dev, three levels up).
-const waifyVersion = (): string => {
-  const dir = dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    join(dir, '..', '..', 'package.json'),
-    join(dir, '..', '..', '..', 'package.json'),
-  ];
-  const found = candidates.find((p) => existsSync(p));
-  if (!found) return 'latest';
-  try {
-    return z.object({ version: z.string() }).parse(JSON.parse(readFileSync(found, 'utf-8'))).version;
-  } catch {
-    return 'latest';
-  }
-};
-
 // The sender image Ofelia spawns each tick: just the published waify CLI.
 // Nothing is COPYed in, so the build context (the config dir) is irrelevant.
 const dockerfileTemplate = (version: string): string => `FROM node:22-alpine
@@ -148,7 +130,7 @@ ENTRYPOINT ["waify"]
 
 const buildSenderImage = (): void => {
   console.warn('Writing Dockerfile and building sender image...');
-  writeFileSync(dockerfilePath(), dockerfileTemplate(waifyVersion()), 'utf-8');
+  writeFileSync(dockerfilePath(), dockerfileTemplate(readWaifyVersion()), 'utf-8');
   const result = spawnSync(
     'docker',
     ['build', '-t', 'openwa-scripts-sender:latest', '-f', dockerfilePath(), dataDir()],
