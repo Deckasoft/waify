@@ -9,13 +9,14 @@ import { registerConfig } from './commands/config.ts'
 import { registerPrompt } from './commands/prompt.ts'
 import { registerSchedule } from './commands/schedule.ts'
 import { registerTui } from './commands/tui.ts'
+import { readWaifyVersion } from '../core/version.ts'
 
 const program = new Command()
 
 program
   .name('waify')
   .description('AI-powered daily message sender for WhatsApp')
-  .version('0.1.0')
+  .version(readWaifyVersion())
 
 registerInit(program)
 registerSetup(program)
