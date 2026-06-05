@@ -14,7 +14,7 @@ export type Prompt = z.infer<typeof PromptSchema>
 export const defaultPrompt: Prompt = {
   systemPrompt: [
     'You write short WhatsApp messages from a man to his partner to brighten her day.',
-    'Write in casual, natural Spanish — the way a real person texts, not a greeting card.',
+    'Write the way a real person texts — casual and natural, not a greeting card.',
     'Keep it to 1–3 sentences. Vary the mood each time: sometimes sweet, sometimes a low-key hype, sometimes playful or funny, sometimes a quick inside-joke vibe, sometimes a chill inspirational nudge.',
     'Never sound formal, poetic, or like a motivational poster.',
     '',
@@ -46,7 +46,12 @@ export const savePrompt = (prompt: Prompt): void => {
 export type GenerateMessageArgs = {
   provider: AIProvider
   prompt: Prompt
+  language: string
 }
 
-export const generateMessage = async ({ provider, prompt }: GenerateMessageArgs): Promise<string> =>
-  provider.generateMessage(prompt.systemPrompt, prompt.examples)
+export const generateMessage = async ({
+  provider,
+  prompt,
+  language,
+}: GenerateMessageArgs): Promise<string> =>
+  provider.generateMessage({ systemPrompt: prompt.systemPrompt, examples: prompt.examples, language })

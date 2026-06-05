@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { defaultConfig } from '../src/core/config.ts'
+import { ConfigSchema, defaultConfig } from '../src/core/config.ts'
 
 describe('config OPENWA_BASE_URL override', () => {
   afterEach(() => {
@@ -18,5 +18,21 @@ describe('config OPENWA_BASE_URL override', () => {
   it('throws a validation error if OPENWA_BASE_URL is not a valid URL', () => {
     process.env['OPENWA_BASE_URL'] = 'not-a-url'
     expect(() => defaultConfig()).toThrow()
+  })
+})
+
+describe('config language + timezone', () => {
+  it('defaults language to Spanish and timezone to UTC', () => {
+    const cfg = defaultConfig()
+    expect(cfg.language).toBe('Spanish')
+    expect(cfg.timezone).toBe('UTC')
+  })
+
+  it('accepts a valid IANA timezone', () => {
+    expect(ConfigSchema.parse({ timezone: 'America/Guayaquil' }).timezone).toBe('America/Guayaquil')
+  })
+
+  it('rejects an invalid timezone', () => {
+    expect(() => ConfigSchema.parse({ timezone: 'Mars/Olympus' })).toThrow('IANA')
   })
 })

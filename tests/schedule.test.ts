@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { join } from 'path'
 import { homedir } from 'os'
-import { renderOfeliaIni, ScheduledJobSchema } from '../src/core/schedule.ts'
+import { buildCron, isValidCron, parseDays, renderOfeliaIni, ScheduledJobSchema } from '../src/core/schedule.ts'
 
 const makeSchedule = () => ({
   jobs: [{ name: 'test-job', schedule: '0 0 9 * * *', command: 'send' }],
@@ -110,5 +110,56 @@ describe('ScheduledJobSchema cron validation', () => {
 
   it('rejects incomplete range expression', () => {
     expect(valid('1- * * * * *')).toThrow('6-field')
+  })
+
+  it('accepts comma-separated lists (weekends, custom days)', () => {
+    expect(isValidCron('0 0 9 * * 0,6')).toBe(true)
+    expect(isValidCron('0 0 9 * * 1,3,5')).toBe(true)
+  })
+
+  it('rejects malformed comma lists', () => {
+    expect(isValidCron('0 0 9 * * 1,,5')).toBe(false)
+    expect(isValidCron('0 0 9 * * 1,13')).toBe(false)
+  })
+})
+
+describe('buildCron', () => {
+  it('builds a daily cron', () => {
+    expect(buildCron({ hour: 9, minute: 0, frequency: 'daily' })).toBe('0 0 9 * * *')
+  })
+
+  it('builds weekdays and weekends', () => {
+    expect(buildCron({ hour: 19, minute: 30, frequency: 'weekdays' })).toBe('0 30 19 * * 1-5')
+    expect(buildCron({ hour: 8, minute: 5, frequency: 'weekends' })).toBe('0 5 8 * * 0,6')
+  })
+
+  it('builds custom days sorted + deduped', () => {
+    expect(buildCron({ hour: 7, minute: 0, frequency: 'custom', days: [5, 1, 3, 1] })).toBe('0 0 7 * * 1,3,5')
+  })
+
+  it('rejects custom frequency with no days', () => {
+    expect(() => buildCron({ hour: 7, minute: 0, frequency: 'custom', days: [] })).toThrow()
+  })
+
+  it('always produces a valid cron', () => {
+    expect(isValidCron(buildCron({ hour: 0, minute: 0, frequency: 'weekends' }))).toBe(true)
+    expect(isValidCron(buildCron({ hour: 23, minute: 59, frequency: 'custom', days: [0, 6] }))).toBe(true)
+  })
+})
+
+describe('parseDays', () => {
+  it('parses day names case-insensitively', () => {
+    expect(parseDays('mon,wed,fri')).toEqual([1, 3, 5])
+    expect(parseDays('SUN,Sat')).toEqual([0, 6])
+  })
+
+  it('parses numeric days and dedupes', () => {
+    expect(parseDays('1,3,3,1')).toEqual([1, 3])
+  })
+
+  it('returns null for invalid or empty input', () => {
+    expect(parseDays('xyz')).toBeNull()
+    expect(parseDays('')).toBeNull()
+    expect(parseDays('mon,nope')).toBeNull()
   })
 })

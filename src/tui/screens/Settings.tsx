@@ -1,13 +1,19 @@
 import { Box, Text, useInput } from 'ink'
 import TextInput from 'ink-text-input'
 import { useEffect, useState } from 'react'
-import { ConfigSchema, loadConfig, saveConfig } from '../../core/config.ts'
+import { ConfigSchema, LANGUAGES, loadConfig, saveConfig, supportedTimezones } from '../../core/config.ts'
 import { SecretsSchema, saveSecrets, tryLoadSecrets } from '../../core/secrets.ts'
+import { writeCompose } from '../../core/compose.ts'
+import { restartScheduler } from '../../core/scheduler.ts'
+import { SelectList } from '../components/SelectList.tsx'
+
+type FieldKind = 'text' | 'language' | 'timezone'
 
 type Field = {
   key: string
   label: string
   group: 'config' | 'secret' | 'recipient'
+  kind: FieldKind
   value: string
   secret: boolean
 }
@@ -16,14 +22,20 @@ const buildFields = (): Field[] => {
   const cfg = loadConfig()
   const secrets = tryLoadSecrets()
   return [
-    { key: 'openwaBaseUrl', label: 'openwaBaseUrl', group: 'config', value: cfg.openwaBaseUrl, secret: false },
-    { key: 'openwaSessionId', label: 'openwaSessionId', group: 'config', value: cfg.openwaSessionId ?? '', secret: false },
-    { key: 'openwaApiKey', label: 'openwaApiKey', group: 'config', value: cfg.openwaApiKey ?? '', secret: false },
-    { key: 'recipientChatId', label: 'recipients[0].chatId', group: 'recipient', value: cfg.recipients[0]?.chatId ?? '', secret: false },
-    { key: 'GEMINI_API_KEY', label: 'GEMINI_API_KEY', group: 'secret', value: secrets.GEMINI_API_KEY ?? '', secret: true },
-    { key: 'OPENWA_API_KEY', label: 'OPENWA_API_KEY', group: 'secret', value: secrets.OPENWA_API_KEY ?? '', secret: true },
+    { key: 'openwaBaseUrl', label: 'openwaBaseUrl', group: 'config', kind: 'text', value: cfg.openwaBaseUrl, secret: false },
+    { key: 'openwaSessionId', label: 'openwaSessionId', group: 'config', kind: 'text', value: cfg.openwaSessionId ?? '', secret: false },
+    { key: 'openwaApiKey', label: 'openwaApiKey', group: 'config', kind: 'text', value: cfg.openwaApiKey ?? '', secret: false },
+    { key: 'recipientChatId', label: 'recipients[0].chatId', group: 'recipient', kind: 'text', value: cfg.recipients[0]?.chatId ?? '', secret: false },
+    { key: 'language', label: 'language', group: 'config', kind: 'language', value: cfg.language, secret: false },
+    { key: 'timezone', label: 'timezone', group: 'config', kind: 'timezone', value: cfg.timezone, secret: false },
+    { key: 'GEMINI_API_KEY', label: 'GEMINI_API_KEY', group: 'secret', kind: 'text', value: secrets.GEMINI_API_KEY ?? '', secret: true },
+    { key: 'OPENWA_API_KEY', label: 'OPENWA_API_KEY', group: 'secret', kind: 'text', value: secrets.OPENWA_API_KEY ?? '', secret: true },
   ]
 }
+
+type EditMode = 'none' | 'text' | 'language' | 'language-other' | 'timezone'
+
+const LANGUAGE_OPTIONS = [...LANGUAGES, 'Other…'] as const
 
 type Props = {
   onFocusChange: (focused: boolean) => void
@@ -32,18 +44,18 @@ type Props = {
 export const Settings = ({ onFocusChange }: Props) => {
   const [fields, setFields] = useState<Field[]>(buildFields)
   const [cursor, setCursor] = useState(0)
-  const [editing, setEditing] = useState(false)
+  const [mode, setMode] = useState<EditMode>('none')
   const [draft, setDraft] = useState('')
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    onFocusChange(editing)
-  }, [editing, onFocusChange])
+    onFocusChange(mode !== 'none')
+  }, [mode, onFocusChange])
 
   useInput((input, key) => {
-    if (editing) {
-      if (key.escape) {
-        setEditing(false)
+    if (mode !== 'none') {
+      if ((mode === 'text' || mode === 'language-other') && key.escape) {
+        setMode('none')
         setDraft('')
       }
       return
@@ -52,40 +64,97 @@ export const Settings = ({ onFocusChange }: Props) => {
     if (key.downArrow || input === 'j') setCursor((c) => Math.min(fields.length - 1, c + 1))
     if (key.return || input === 'e') {
       const field = fields[cursor]
-      if (field) {
+      if (!field) return
+      if (field.kind === 'language') setMode('language')
+      else if (field.kind === 'timezone') setMode('timezone')
+      else {
         setDraft(field.value)
-        setEditing(true)
+        setMode('text')
       }
     }
   })
 
-  const commit = (value: string) => {
+  const saveConfigField = (key: string, value: string | null) => {
+    saveConfig(ConfigSchema.parse({ ...loadConfig(), [key]: value }))
+  }
+
+  const finish = (msg: string) => {
+    setFields(buildFields())
+    setMessage(msg)
+    setMode('none')
+    setDraft('')
+  }
+
+  const commitText = (value: string) => {
     const field = fields[cursor]
     if (!field) return
     try {
       if (field.group === 'secret') {
-        const parsed = SecretsSchema.partial().parse({ [field.key]: value })
-        saveSecrets(parsed)
+        saveSecrets(SecretsSchema.partial().parse({ [field.key]: value }))
       } else if (field.group === 'recipient') {
         const cfg = loadConfig()
-        const existing = cfg.recipients[0]
-        const next = ConfigSchema.parse({
-          ...cfg,
-          recipients: [{ ...existing, chatId: value }],
-        })
-        saveConfig(next)
+        saveConfig(ConfigSchema.parse({ ...cfg, recipients: [{ ...cfg.recipients[0], chatId: value }] }))
       } else {
-        const cfg = loadConfig()
-        const next = ConfigSchema.parse({ ...cfg, [field.key]: value || null })
-        saveConfig(next)
+        saveConfigField(field.key, value || null)
       }
+      finish(`saved ${field.label}`)
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : String(err))
+      setMode('none')
+      setDraft('')
+    }
+  }
+
+  const commitLanguage = (value: string) => {
+    if (value === 'Other…') {
+      setDraft('')
+      setMode('language-other')
+      return
+    }
+    try {
+      saveConfigField('language', value)
+      finish(`saved language → ${value}`)
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : String(err))
+      setMode('none')
+    }
+  }
+
+  const commitTimezone = async (value: string) => {
+    setMode('none')
+    try {
+      saveConfigField('timezone', value)
       setFields(buildFields())
-      setMessage(`saved ${field.label}`)
+      writeCompose(value)
+      setMessage(`timezone → ${value} · restarting scheduler…`)
+      const res = await restartScheduler()
+      setMessage(res.ok ? `timezone → ${value} · scheduler restarted` : 'timezone saved · scheduler restart failed')
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err))
     }
-    setEditing(false)
-    setDraft('')
+  }
+
+  if (mode === 'language') {
+    return (
+      <Box flexDirection="column">
+        <Text bold>Settings · language</Text>
+        <SelectList items={LANGUAGE_OPTIONS} onSelect={commitLanguage} onCancel={() => setMode('none')} />
+      </Box>
+    )
+  }
+
+  if (mode === 'timezone') {
+    return (
+      <Box flexDirection="column">
+        <Text bold>Settings · timezone</Text>
+        <SelectList
+          items={supportedTimezones()}
+          filterable
+          onSelect={(v) => void commitTimezone(v)}
+          onCancel={() => setMode('none')}
+        />
+      </Box>
+    )
   }
 
   const renderValue = (f: Field) => {
@@ -108,8 +177,10 @@ export const Settings = ({ onFocusChange }: Props) => {
               </Text>
             </Box>
             <Text> = </Text>
-            {editing && i === cursor ? (
-              <TextInput value={draft} onChange={setDraft} onSubmit={commit} />
+            {mode === 'text' && i === cursor ? (
+              <TextInput value={draft} onChange={setDraft} onSubmit={commitText} />
+            ) : mode === 'language-other' && i === cursor ? (
+              <TextInput value={draft} onChange={setDraft} onSubmit={commitLanguage} placeholder="language name" />
             ) : (
               renderValue(f)
             )}
