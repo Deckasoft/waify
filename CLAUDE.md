@@ -21,15 +21,17 @@ npx vitest run tests/generateMessage.test.ts
 
 The CLI entry is `src/cli/index.ts` (Commander). Each subcommand lives in `src/cli/commands/*.ts` and delegates to pure-function modules in `src/core/`:
 
-- `src/core/config.ts` — Zod-validated `config.json` (openwaBaseUrl, openwaSessionId, recipients). Use `wifeChatId` alias with `waify config set` to set `recipients[0].chatId`.
+- `src/core/config.ts` — Zod-validated `config.json` (openwaBaseUrl, openwaSessionId, recipients, `language`, `timezone`). `language` (default Spanish) drives the generation prompt; `timezone` (IANA, validated against `supportedTimezones()`) sets the scheduler's `TZ`. Exports `LANGUAGES`, `supportedTimezones()`, `detectTimezone()`.
 - `src/core/secrets.ts` — Zod-validated `.env` (GEMINI_API_KEY, OPENWA_API_KEY).
-- `src/core/prompt.ts` — `prompt.json` (systemPrompt + examples) + `generateMessage(args)` calling Gemini 2.5 Flash.
-- `src/core/sender.ts` — `sendMessage(args)` POSTing to the OpenWA REST API. Response shape validated with Zod.
+- `src/core/prompt.ts` — `prompt.json` (systemPrompt + examples, language-neutral) + `generateMessage({ provider, prompt, language })` calling Gemini 2.5 Flash. The provider injects "Write the message in {language}".
+- `src/core/sender.ts` / `src/core/session.ts` — `sendMessage(args)` and `stopSession(args)` (disconnect) POSTing to the OpenWA REST API.
 - `src/core/logger.ts` — appends to `messages.log`, plus `readHistory()` for the TUI/CLI viewers.
-- `src/core/schedule.ts` — `schedule.json` is the source of truth; `saveSchedule()` also regenerates `ofelia.ini` for the Ofelia daemon. `ScheduledJobSchema` validates 6-field cron expressions.
+- `src/core/schedule.ts` — `schedule.json` is the source of truth; `saveSchedule()` also regenerates `ofelia.ini`. `isValidCron` accepts comma lists; `buildCron({hour,minute,frequency,days})` + `parseDays()` power the time builder.
+- `src/core/compose.ts` — `composeTemplate(timezone)` / `writeCompose(timezone)` generate `docker-compose.yml` (scheduler `TZ` baked in). Reused by setup + the TUI.
+- `src/core/scheduler.ts` — `restartScheduler()` = `docker compose up -d --force-recreate scheduler` (applies ofelia.ini + TZ changes; never touches openwa-api). Shared by CLI + TUI.
 - `src/core/paths.ts` — resolves all data file paths from `WAIFY_DATA_DIR` (defaults to `~/.config/waify/`).
 
-The TUI is Ink/React under `src/tui/`. `App.tsx` is the tab router; one screen per tab lives in `src/tui/screens/`.
+The TUI is Ink/React under `src/tui/`. `App.tsx` is the tab router; one screen per tab lives in `src/tui/screens/`. Reusable inputs live in `src/tui/components/` (`SelectList` for language/timezone, `DayPicker` for custom days). Settings edits language/timezone via pickers (timezone change rewrites compose + restarts the scheduler); Schedule uses the time builder and auto-restarts on change (plus `[r]`); Home has `[x]` Disconnect WhatsApp (`stopSession`).
 
 ## Docker layout
 
@@ -50,7 +52,7 @@ All user data lives in `~/.config/waify/` (or `$WAIFY_DATA_DIR` if set):
 
 | File | Role |
 |------|------|
-| `config.json` | OpenWA URL, session ID, API key, recipient |
+| `config.json` | OpenWA URL, session ID, API key, recipient, language, timezone |
 | `prompt.json` | AI system prompt + few-shot examples |
 | `schedule.json` | Scheduled send jobs (6-field cron) |
 | `ofelia.ini` | Auto-generated from `schedule.json` by `saveSchedule()` |
@@ -63,7 +65,7 @@ All user data lives in `~/.config/waify/` (or `$WAIFY_DATA_DIR` if set):
 
 ## Scheduling
 
-`schedule.json` is the source of truth (`{ jobs: [{ name, schedule, command }] }`). The `schedule` field must be a **6-field cron** (sec min hour dom month dow), e.g. `0 0 9 * * *`. On save, `saveSchedule()` regenerates `ofelia.ini`. Each `[job-run]` block:
+`schedule.json` is the source of truth (`{ jobs: [{ name, schedule, command }] }`). The `schedule` field must be a **6-field cron** (sec min hour dom month dow), e.g. `0 0 9 * * *`, and fields may be comma lists (`0,6`, `1,3,5`). Cron is evaluated in `config.timezone` via the scheduler container's `TZ` env (the image ships tzdata). Setup and the TUI generate cron from a time + frequency (Daily/Weekdays/Weekends/Custom) builder; the CLI `waify schedule add` still takes raw cron. On save, `saveSchedule()` regenerates `ofelia.ini`. Each `[job-run]` block:
 
 - mounts `~/.config/waify` as `/data` and sets `WAIFY_DATA_DIR=/data` so the container resolves `config.json` and `.env` from there (no separate `.env` mount).
 - sets `OPENWA_BASE_URL=http://openwa-api:2785` so the send reaches the API by service name over `waify-network` (the mounted `config.json` says `localhost`, which is wrong inside a container — `config.ts` applies this env override on load).

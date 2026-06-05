@@ -8,10 +8,19 @@ import { createInterface } from 'readline';
 import qrcode from 'qrcode-terminal';
 import { decodeQrDataUrl, saveQrImage } from '../../core/qr.ts';
 import { z } from 'zod';
-import { composePath, dataDir, dockerfilePath, promptPath, schedulePath } from '../../core/paths.ts';
-import { loadConfig, saveConfig } from '../../core/config.ts';
+import { composePath, dataDir, dockerfilePath, promptPath } from '../../core/paths.ts';
+import { writeCompose } from '../../core/compose.ts';
+import { detectTimezone, LANGUAGES, loadConfig, saveConfig, supportedTimezones } from '../../core/config.ts';
 import { saveSecrets } from '../../core/secrets.ts';
-import { isValidCron, saveSchedule, ScheduledJobSchema, type ScheduledJob } from '../../core/schedule.ts';
+import {
+  buildCron,
+  DAY_LABELS,
+  parseDays,
+  saveSchedule,
+  ScheduledJobSchema,
+  type Frequency,
+  type ScheduledJob,
+} from '../../core/schedule.ts';
 import { defaultPrompt, savePrompt } from '../../core/prompt.ts';
 
 const SessionResponseSchema = z.object({
@@ -112,51 +121,6 @@ const presentQr = (
   console.warn(`       | base64 -d > waify-qr.png`);
 };
 
-export const composeTemplate = (): string => `services:
-  openwa-api:
-    image: ghcr.io/deckasoft/openwa:latest
-    ports:
-      - '2785:2785'
-    environment:
-      - NODE_ENV=production
-      - PORT=2785
-      - DATABASE_TYPE=sqlite
-      - DATABASE_SYNCHRONIZE=true
-      - ENGINE_TYPE=whatsapp-web.js
-      - SESSION_DATA_PATH=/app/data/sessions
-      - PUPPETEER_HEADLESS=true
-      - PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu
-      - STORAGE_TYPE=local
-      - STORAGE_LOCAL_PATH=/app/data/media
-      - QUEUE_ENABLED=false
-      - REDIS_ENABLED=false
-      - REDIS_BUILTIN=false
-    volumes:
-      - openwa-data:/app/data
-    networks:
-      - waify-network
-    restart: unless-stopped
-
-  scheduler:
-    image: mcuadros/ofelia:latest
-    depends_on:
-      - openwa-api
-    command: daemon --config=/etc/ofelia/config.ini
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${schedulePath()}:/etc/ofelia/config.ini:ro
-    networks:
-      - waify-network
-    restart: unless-stopped
-
-volumes:
-  openwa-data:
-
-networks:
-  waify-network:
-    name: waify-network
-`;
-
 // Pinned so the sender container runs the same waify version as the host CLI.
 // Resolves package.json relative to this module: dist/cli/index.js (bundled,
 // two levels up) and src/cli/commands/setup.ts (tsx dev, three levels up).
@@ -239,6 +203,89 @@ const promptUntilValid = async (
   return promptUntilValid(promptFn, question, validate, errorMsg)
 }
 
+export const promptLanguage = async (
+  promptFn: (question: string) => Promise<string>,
+): Promise<string> => {
+  process.stderr.write('\nMessage language:\n')
+  LANGUAGES.forEach((l, i) => process.stderr.write(`  ${i + 1}) ${l}\n`))
+  process.stderr.write(`  ${LANGUAGES.length + 1}) Other (type your own)\n`)
+  const answer = (await promptFn(`Choose [1-${LANGUAGES.length + 1}] (default 1 — Spanish): `)).trim()
+  if (answer === '') return 'Spanish'
+  const n = Number(answer)
+  if (Number.isInteger(n)) {
+    // A number is a menu choice; out-of-range falls back to the default
+    // (so a stray '99' isn't saved as the language name).
+    if (n >= 1 && n <= LANGUAGES.length) return LANGUAGES[n - 1]!
+    if (n === LANGUAGES.length + 1) {
+      const custom = (await promptFn('Language name: ')).trim()
+      return custom || 'Spanish'
+    }
+    return 'Spanish'
+  }
+  // Non-numeric input is treated as a language name typed directly.
+  return answer
+}
+
+export const promptTimezone = async (
+  promptFn: (question: string) => Promise<string>,
+): Promise<string> => {
+  const detected = detectTimezone()
+  const zones = new Set(supportedTimezones())
+  process.stderr.write(
+    `\nTimezone for your schedule (IANA name, e.g. America/Guayaquil). Detected: ${detected}\n`,
+  )
+  const ask = async (): Promise<string> => {
+    const answer = (await promptFn(`Timezone [${detected}]: `)).trim()
+    if (answer === '') return zones.has(detected) ? detected : 'UTC'
+    if (zones.has(answer)) return answer
+    process.stderr.write(`"${answer}" is not a valid IANA zone. Try e.g. Europe/Madrid, America/Sao_Paulo.\n`)
+    return ask()
+  }
+  return ask()
+}
+
+const FREQUENCY_BY_CHOICE: Record<string, Frequency> = {
+  '1': 'daily',
+  '2': 'weekdays',
+  '3': 'weekends',
+  '4': 'custom',
+}
+
+const HHMM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/
+
+const promptJobScheduleCron = async (
+  promptFn: (question: string) => Promise<string>,
+): Promise<string> => {
+  const time = await promptUntilValid(
+    promptFn,
+    'Time (HH:MM, 24h): ',
+    (v) => HHMM_RE.test(v),
+    'Invalid time. Use 24h HH:MM, e.g. 09:00 or 19:30.',
+  )
+  const [hourStr, minuteStr] = time.split(':')
+  const hour = Number(hourStr)
+  const minute = Number(minuteStr)
+
+  process.stderr.write('Frequency: 1) Daily  2) Weekdays  3) Weekends  4) Custom days\n')
+  const freqChoice = await promptUntilValid(
+    promptFn,
+    'Choose [1-4] (default 1 — Daily): ',
+    (v) => v === '' || v in FREQUENCY_BY_CHOICE,
+    'Choose 1, 2, 3, or 4.',
+  )
+  const frequency: Frequency = freqChoice === '' ? 'daily' : FREQUENCY_BY_CHOICE[freqChoice]!
+
+  if (frequency !== 'custom') return buildCron({ hour, minute, frequency })
+
+  const daysAnswer = await promptUntilValid(
+    promptFn,
+    'Days (e.g. mon,wed,fri): ',
+    (v) => parseDays(v) !== null,
+    `Invalid days. Use ${DAY_LABELS.map((d) => d.toLowerCase()).join(',')} or 0-6, comma-separated.`,
+  )
+  return buildCron({ hour, minute, frequency, days: parseDays(daysAnswer)! })
+}
+
 const collectJobs = async (
   promptFn: (question: string) => Promise<string>,
   accumulated: ScheduledJob[] = [],
@@ -249,12 +296,7 @@ const collectJobs = async (
     (v) => /^[a-z0-9-]+$/.test(v),
     'Name must be lowercase letters, numbers, and dashes only.',
   )
-  const schedule = await promptUntilValid(
-    promptFn,
-    'Cron pattern (e.g. 0 0 9 * * *): ',
-    isValidCron,
-    'Invalid cron pattern. Use 6 space-separated fields, e.g. 0 0 9 * * *',
-  )
+  const schedule = await promptJobScheduleCron(promptFn)
   const job = ScheduledJobSchema.parse({ name, schedule, command: 'send' })
   const jobs = [...accumulated, job]
   const more = (await promptFn('Add another schedule? (y/N) ')).trim().toLowerCase()
@@ -267,7 +309,7 @@ export const promptScheduleJobs = async (
   process.stderr.write(
     '\nConfigure your message schedule (at least one job required).\n' +
       'Job names: lowercase letters, numbers, and dashes only.\n' +
-      'Cron pattern: 6 fields, e.g. 0 0 9 * * *  (sec min hour dom month dow)\n\n',
+      'Pick a time and frequency for each — cron is generated for you.\n\n',
   )
   return collectJobs(promptFn)
 }
@@ -329,16 +371,22 @@ export const registerSetup = (program: Command): void => {
         }
         const chatId = `${recipientNumber.trim()}@c.us`;
 
-        // Save Gemini key and recipient immediately so a QR timeout doesn't lose user input
-        saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: '' });
-        saveConfig({ ...loadConfig(), recipients: [{ chatId }] });
+        // Step 4b — Message language
+        const language = await promptLanguage((q) => promptLine(rl, q));
 
-        // Step 5 — Collect schedule jobs
+        // Step 5 — Timezone (used by the scheduler to evaluate cron locally)
+        const timezone = await promptTimezone((q) => promptLine(rl, q));
+
+        // Persist early so a later QR timeout doesn't lose user input
+        saveSecrets({ GEMINI_API_KEY: geminiKey.trim(), OPENWA_API_KEY: '' });
+        saveConfig({ ...loadConfig(), recipients: [{ chatId }], language, timezone });
+
+        // Step 5b — Collect schedule jobs (time + frequency, cron generated)
         const jobs = await promptScheduleJobs((q) => promptLine(rl, q));
 
-        // Step 6 — Write docker-compose.yml
+        // Step 6 — Write docker-compose.yml (scheduler TZ baked in)
         console.warn('Writing docker-compose.yml...');
-        writeFileSync(composePath(), composeTemplate(), 'utf-8');
+        writeCompose(timezone);
 
         // Step 7 — Start API container
         console.warn(

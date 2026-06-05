@@ -1,11 +1,12 @@
 import { Box, Text, useInput } from 'ink'
 import Spinner from 'ink-spinner'
 import { useState } from 'react'
-import { loadConfig, assertConfigReady } from '../../core/config.ts'
+import { loadConfig, saveConfig, assertConfigReady } from '../../core/config.ts'
 import { tryLoadSecrets } from '../../core/secrets.ts'
 import { loadPrompt, generateMessage } from '../../core/prompt.ts'
 import { createGeminiProvider } from '../../core/providers/gemini.ts'
 import { sendMessage } from '../../core/sender.ts'
+import { stopSession } from '../../core/session.ts'
 import { log, readHistory } from '../../core/logger.ts'
 import { loadSchedule } from '../../core/schedule.ts'
 
@@ -14,6 +15,8 @@ type State =
   | { kind: 'busy'; label: string }
   | { kind: 'preview'; text: string }
   | { kind: 'sent'; text: string }
+  | { kind: 'confirm-disconnect' }
+  | { kind: 'disconnected' }
   | { kind: 'error'; message: string }
 
 export const Home = () => {
@@ -37,7 +40,7 @@ export const Home = () => {
     try {
       const prompt = loadPrompt()
       const provider = createGeminiProvider({ apiKey: secrets.GEMINI_API_KEY })
-      const text = await generateMessage({ provider, prompt })
+      const text = await generateMessage({ provider, prompt, language: cfg.language })
       setState({ kind: 'preview', text })
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
@@ -59,7 +62,7 @@ export const Home = () => {
     try {
       const prompt = loadPrompt()
       const provider = createGeminiProvider({ apiKey: secrets.GEMINI_API_KEY ?? '' })
-      const text = await generateMessage({ provider, prompt })
+      const text = await generateMessage({ provider, prompt, language: cfg.language })
       await sendMessage({
         baseUrl: cfg.openwaBaseUrl,
         apiKey: secrets.OPENWA_API_KEY ?? '',
@@ -76,10 +79,32 @@ export const Home = () => {
     }
   }
 
+  const doDisconnect = async () => {
+    setState({ kind: 'busy', label: 'Disconnecting WhatsApp' })
+    try {
+      await stopSession({
+        baseUrl: cfg.openwaBaseUrl,
+        apiKey: secrets.OPENWA_API_KEY ?? '',
+        sessionId: cfg.openwaSessionId ?? '',
+      })
+      // Clear the stale session id so status doesn't falsely show "ok" until reconnect.
+      saveConfig({ ...cfg, openwaSessionId: null })
+      setState({ kind: 'disconnected' })
+    } catch (err) {
+      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
   useInput((input) => {
     if (state.kind === 'busy') return
+    if (state.kind === 'confirm-disconnect') {
+      if (input === 'y') void doDisconnect()
+      else setState({ kind: 'idle' })
+      return
+    }
     if (input === 'p') void doPreview()
     if (input === 's') void doSend()
+    if (input === 'x') setState({ kind: 'confirm-disconnect' })
   })
 
   return (
@@ -94,8 +119,22 @@ export const Home = () => {
 
       <Box flexDirection="column">
         <Text bold>Actions</Text>
-        <Text>  [p] preview · [s] send now</Text>
+        <Text>  [p] preview · [s] send now · [x] disconnect WhatsApp</Text>
       </Box>
+
+      {state.kind === 'confirm-disconnect' && (
+        <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
+          <Text bold color="yellow">Disconnect WhatsApp?</Text>
+          <Text>This stops the session. Reconnecting means re-running `waify setup` (scan the QR).</Text>
+          <Text dimColor>[y] confirm · any other key cancels</Text>
+        </Box>
+      )}
+      {state.kind === 'disconnected' && (
+        <Box flexDirection="column" borderStyle="round" borderColor="red" paddingX={1}>
+          <Text bold color="red">WhatsApp disconnected</Text>
+          <Text>Run `waify setup` to reconnect.</Text>
+        </Box>
+      )}
 
       {state.kind === 'busy' && (
         <Text>

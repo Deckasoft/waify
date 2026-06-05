@@ -15,16 +15,84 @@ const CRON_RANGES: ReadonlyArray<readonly [number, number]> = [
 const STEP_RE = /^(\*|\d+)\/\d+$/
 const RANGE_RE = /^\d+-\d+$/
 
-const isValidCronField = (field: string, [min, max]: readonly [number, number]): boolean => {
-  if (field === '*') return true
-  if (STEP_RE.test(field) || RANGE_RE.test(field)) return true
-  const n = Number(field)
+// A single atom: '*', an integer in range, a range (N-M), or a step (N/M | */N).
+const isValidCronAtom = (atom: string, [min, max]: readonly [number, number]): boolean => {
+  if (atom === '*') return true
+  if (STEP_RE.test(atom) || RANGE_RE.test(atom)) return true
+  const n = Number(atom)
   return Number.isInteger(n) && n >= min && n <= max
+}
+
+// A field may be a comma-separated list of atoms (e.g. '0,6' or '1,3,5'), which
+// Ofelia/cron support and the time builder emits for Weekends/Custom days.
+const isValidCronField = (field: string, range: readonly [number, number]): boolean => {
+  const atoms = field.split(',')
+  return atoms.length > 0 && atoms.every((a) => a.length > 0 && isValidCronAtom(a, range))
 }
 
 export const isValidCron = (value: string): boolean => {
   const fields = value.trim().split(/\s+/)
   return fields.length === 6 && fields.every((f, i) => isValidCronField(f, CRON_RANGES[i]!))
+}
+
+// Day-of-week labels indexed by cron DOW number (Sun=0 … Sat=6).
+export const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+
+const DAY_LOOKUP: Record<string, number> = Object.fromEntries(
+  DAY_LABELS.map((label, i) => [label.toLowerCase(), i]),
+)
+
+// Parse a custom-days string ('mon,wed,fri' or '1,3,5') into sorted unique DOW
+// numbers, or null if any token is invalid. Accepts 3-letter names or 0–6.
+export const parseDays = (input: string): number[] | null => {
+  const tokens = input
+    .split(',')
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t.length > 0)
+  if (tokens.length === 0) return null
+  const nums = tokens.map((t) => {
+    if (t in DAY_LOOKUP) return DAY_LOOKUP[t]!
+    const n = Number(t)
+    return Number.isInteger(n) && n >= 0 && n <= 6 ? n : null
+  })
+  if (nums.some((n) => n === null)) return null
+  return [...new Set(nums as number[])].sort((a, b) => a - b)
+}
+
+export const FREQUENCIES = ['daily', 'weekdays', 'weekends', 'custom'] as const
+export type Frequency = (typeof FREQUENCIES)[number]
+
+export const CronBuilderSchema = z
+  .object({
+    hour: z.number().int().min(0).max(23),
+    minute: z.number().int().min(0).max(59),
+    frequency: z.enum(FREQUENCIES),
+    days: z.array(z.number().int().min(0).max(6)).optional(),
+  })
+  .refine((v) => v.frequency !== 'custom' || (v.days?.length ?? 0) > 0, {
+    message: 'custom frequency requires at least one weekday',
+  })
+
+export type CronBuilderInput = z.infer<typeof CronBuilderSchema>
+
+const dowField = (frequency: Frequency, days: number[] = []): string => {
+  switch (frequency) {
+    case 'daily':
+      return '*'
+    case 'weekdays':
+      return '1-5'
+    case 'weekends':
+      return '0,6'
+    case 'custom':
+      return [...new Set(days)].sort((a, b) => a - b).join(',')
+  }
+}
+
+// Generate a 6-field cron (seconds always 0) from a time + frequency. The
+// schedule.json still stores plain cron, so Ofelia is unaffected.
+export const buildCron = (input: CronBuilderInput): string => {
+  const { hour, minute, frequency, days } = CronBuilderSchema.parse(input)
+  return `0 ${minute} ${hour} * * ${dowField(frequency, days)}`
 }
 
 export const ScheduledJobSchema = z.object({

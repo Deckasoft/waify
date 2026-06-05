@@ -1,5 +1,6 @@
 import { afterEach, describe, it, expect } from 'vitest'
-import { composeTemplate, promptScheduleJobs } from '../src/cli/commands/setup.ts'
+import { promptLanguage, promptScheduleJobs } from '../src/cli/commands/setup.ts'
+import { composeTemplate } from '../src/core/compose.ts'
 
 const createMockPrompt = (answers: string[]) => {
   let index = 0
@@ -7,23 +8,34 @@ const createMockPrompt = (answers: string[]) => {
 }
 
 describe('promptScheduleJobs', () => {
-  it('returns one job when user declines to add more', async () => {
-    const promptFn = createMockPrompt(['my-job', '0 0 9 * * *', 'n'])
+  // Builder flow per job: name, time (HH:MM), frequency choice (1-4), then "add another?".
+  it('returns one daily job when user declines to add more', async () => {
+    const promptFn = createMockPrompt(['my-job', '09:00', '1', 'n'])
     const jobs = await promptScheduleJobs(promptFn)
     expect(jobs).toHaveLength(1)
     expect(jobs[0]).toMatchObject({ name: 'my-job', schedule: '0 0 9 * * *', command: 'send' })
   })
 
-  it('returns one job when user presses enter (default N)', async () => {
-    const promptFn = createMockPrompt(['my-job', '0 0 9 * * *', ''])
+  it('returns one job when user presses enter (default daily + default N)', async () => {
+    const promptFn = createMockPrompt(['my-job', '09:00', '', ''])
     const jobs = await promptScheduleJobs(promptFn)
     expect(jobs).toHaveLength(1)
+    expect(jobs[0]!.schedule).toBe('0 0 9 * * *')
+  })
+
+  it('builds weekdays/weekends/custom crons from frequency choice', async () => {
+    const weekdays = await promptScheduleJobs(createMockPrompt(['wd', '19:30', '2', 'n']))
+    expect(weekdays[0]!.schedule).toBe('0 30 19 * * 1-5')
+    const weekend = await promptScheduleJobs(createMockPrompt(['we', '08:05', '3', 'n']))
+    expect(weekend[0]!.schedule).toBe('0 5 8 * * 0,6')
+    const custom = await promptScheduleJobs(createMockPrompt(['cu', '07:00', '4', 'mon,wed,fri', 'n']))
+    expect(custom[0]!.schedule).toBe('0 0 7 * * 1,3,5')
   })
 
   it('collects two jobs when user enters y then n', async () => {
     const promptFn = createMockPrompt([
-      'job-one', '0 0 9 * * *', 'y',
-      'job-two', '0 0 19 * * *', 'n',
+      'job-one', '09:00', '1', 'y',
+      'job-two', '19:00', '1', 'n',
     ])
     const jobs = await promptScheduleJobs(promptFn)
     expect(jobs).toHaveLength(2)
@@ -31,15 +43,37 @@ describe('promptScheduleJobs', () => {
   })
 
   it('re-prompts on invalid name and accepts the corrected one', async () => {
-    const promptFn = createMockPrompt(['Invalid Name!', 'valid-name', '0 0 9 * * *', 'n'])
+    const promptFn = createMockPrompt(['Invalid Name!', 'valid-name', '09:00', '1', 'n'])
     const jobs = await promptScheduleJobs(promptFn)
     expect(jobs[0]!.name).toBe('valid-name')
   })
 
-  it('re-prompts on invalid cron and accepts the corrected one', async () => {
-    const promptFn = createMockPrompt(['my-job', '0 9 * * *', '0 0 9 * * *', 'n'])
+  it('re-prompts on invalid time and accepts the corrected one', async () => {
+    const promptFn = createMockPrompt(['my-job', '9am', '09:00', '1', 'n'])
     const jobs = await promptScheduleJobs(promptFn)
     expect(jobs[0]!.schedule).toBe('0 0 9 * * *')
+  })
+})
+
+describe('promptLanguage', () => {
+  it('defaults to Spanish on empty input', async () => {
+    expect(await promptLanguage(createMockPrompt(['']))).toBe('Spanish')
+  })
+
+  it('selects a curated option by number', async () => {
+    expect(await promptLanguage(createMockPrompt(['2']))).toBe('English')
+  })
+
+  it('falls back to Spanish on out-of-range numbers (does not save "99")', async () => {
+    expect(await promptLanguage(createMockPrompt(['99']))).toBe('Spanish')
+  })
+
+  it('takes a custom language via the Other option', async () => {
+    expect(await promptLanguage(createMockPrompt(['7', 'Catalan']))).toBe('Catalan')
+  })
+
+  it('accepts a directly typed language name', async () => {
+    expect(await promptLanguage(createMockPrompt(['Japanese']))).toBe('Japanese')
   })
 })
 
@@ -49,22 +83,26 @@ describe('composeTemplate', () => {
   })
 
   it('defines the Ofelia scheduler service', () => {
-    expect(composeTemplate()).toContain('scheduler:')
-    expect(composeTemplate()).toContain('image: mcuadros/ofelia:latest')
-    expect(composeTemplate()).toContain('command: daemon --config=/etc/ofelia/config.ini')
+    expect(composeTemplate('UTC')).toContain('scheduler:')
+    expect(composeTemplate('UTC')).toContain('image: mcuadros/ofelia:latest')
+    expect(composeTemplate('UTC')).toContain('command: daemon --config=/etc/ofelia/config.ini')
   })
 
   it('mounts the docker socket and the generated ofelia.ini', () => {
     process.env['WAIFY_DATA_DIR'] = '/tmp/waify-test'
-    const yml = composeTemplate()
+    const yml = composeTemplate('UTC')
     expect(yml).toContain('/var/run/docker.sock:/var/run/docker.sock')
     expect(yml).toContain('/tmp/waify-test/ofelia.ini:/etc/ofelia/config.ini:ro')
   })
 
   it('defines waify-network with a fixed name and attaches openwa-api to it', () => {
-    const yml = composeTemplate()
+    const yml = composeTemplate('UTC')
     expect(yml).toContain('name: waify-network')
     // both services join the network
     expect(yml.match(/- waify-network/g)?.length).toBe(2)
+  })
+
+  it('bakes the chosen timezone into the scheduler TZ env', () => {
+    expect(composeTemplate('America/Guayaquil')).toContain('TZ=America/Guayaquil')
   })
 })

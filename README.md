@@ -62,12 +62,14 @@ All config files live in `~/.config/waify/`:
 
 Scheduling runs on an [Ofelia](https://github.com/mcuadros/ofelia) `scheduler` container that fires a transient sender container per job tick. `waify setup` generates the `Dockerfile`, builds the `openwa-scripts-sender:latest` image locally, and starts the scheduler — so scheduling works out of the box after setup.
 
-Use `waify schedule add` to create cron jobs. The cron format is **6 fields** (sec min hour dom month dow). Changes restart the scheduler automatically; to restart manually:
+In `waify setup` and the TUI you pick a **time + frequency** (Daily / Weekdays / Weekends / Custom days) and a **timezone** from a list — the cron is generated for you and evaluated in your local timezone. The CLI `waify schedule add` still takes a raw **6-field cron** (sec min hour dom month dow) for power users. Changes restart the scheduler automatically; to restart manually:
 
 ```bash
 waify schedule add morning "0 0 9 * * *"
 docker compose -f ~/.config/waify/docker-compose.yml restart scheduler
 ```
+
+You also choose the **message language** in setup and the TUI Settings tab; messages are generated in that language while reusing the example tone.
 
 ## Powered by OpenWA
 
