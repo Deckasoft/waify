@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/Deckasoft/waify/compare/v1.0.0...v1.0.1) (2026-06-05)
+
+
+### Bug Fixes
+
+* scheduler force-recreate + time-aware greeting, plus contributing docs & repo rename ([#24](https://github.com/Deckasoft/waify/issues/24)) ([bc7cbcb](https://github.com/Deckasoft/waify/commit/bc7cbcb2fda0d1cc3f9e3043dc20130ab2a3aeef))
+
 # [1.0.0](https://github.com/Deckasoft/openWa-scripts/compare/v0.7.0...v1.0.0) (2026-06-05)
 
 
