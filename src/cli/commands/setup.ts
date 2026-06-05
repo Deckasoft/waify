@@ -153,9 +153,10 @@ const startScheduler = (): void => {
   const args = schedulerUpArgs(composePath());
   const result = spawnSync('docker', args, { stdio: 'inherit' });
   if (result.status !== 0) {
-    console.warn(
-      `warning: failed to start scheduler — run manually: docker ${args.join(' ')}`,
-    );
+    // Quote args with spaces so the printed command is copy-paste safe even when
+    // the data dir lives under a path like /Users/John Doe/.
+    const printable = args.map((a) => (a.includes(' ') ? `'${a}'` : a)).join(' ');
+    console.warn(`warning: failed to start scheduler — run manually: docker ${printable}`);
   }
 };
 

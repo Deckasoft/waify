@@ -32,4 +32,11 @@ describe('describeTimeOfDay', () => {
     // Same instant in UTC is 03:00 — still night, but a different clock time.
     expect(describeTimeOfDay('UTC', new Date('2026-06-05T03:00:00Z'))).toBe('03:00 (night)')
   })
+
+  it('falls back to the host timezone instead of throwing on missing/invalid input', () => {
+    const shape = /^\d{2}:\d{2} \((morning|afternoon|evening|night)\)$/
+    expect(() => describeTimeOfDay(undefined)).not.toThrow()
+    expect(describeTimeOfDay('')).toMatch(shape)
+    expect(describeTimeOfDay('Not/AZone')).toMatch(shape)
+  })
 })

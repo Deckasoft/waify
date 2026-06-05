@@ -54,14 +54,24 @@ export const partOfDay = (hour: number): PartOfDay => {
 
 // Language-neutral local-time context (e.g. "22:00 (night)") for the recipient's
 // timezone, so the model's greeting matches the actual time of day instead of
-// guessing — a night send must never read as "good morning".
-export const describeTimeOfDay = (timezone: string, now: Date = new Date()): string => {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(now)
+// guessing — a night send must never read as "good morning". Config validates
+// the timezone, but this stays defensive: an unknown/empty zone falls back to
+// the host timezone rather than throwing RangeError.
+export const describeTimeOfDay = (timezone?: string, now: Date = new Date()): string => {
+  const format = (tz: string | undefined): Intl.DateTimeFormatPart[] =>
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(now)
+  const parts = ((): Intl.DateTimeFormatPart[] => {
+    try {
+      return format(timezone || undefined)
+    } catch {
+      return format(undefined)
+    }
+  })()
   const at = (type: string): string => parts.find((p) => p.type === type)?.value ?? '00'
   return `${at('hour')}:${at('minute')} (${partOfDay(Number(at('hour')))})`
 }
