@@ -30,6 +30,7 @@ The CLI entry is `src/cli/index.ts` (Commander). Each subcommand lives in `src/c
 - `src/core/compose.ts` — `composeTemplate(timezone)` / `writeCompose(timezone)` generate `docker-compose.yml` (scheduler `TZ` baked in). Reused by setup + the TUI.
 - `src/core/scheduler.ts` — `restartScheduler()` = `docker compose up -d --force-recreate scheduler` (applies ofelia.ini + TZ changes; never touches openwa-api). Shared by CLI + TUI.
 - `src/core/paths.ts` — resolves all data file paths from `WAIFY_DATA_DIR` (defaults to `~/.config/waify/`).
+- `src/core/version.ts` — `readWaifyVersion()` walks up to the nearest `package.json`; drives the CLI `--version` (`index.ts`) and the sender image pin in `setup.ts`, so both always track the published version.
 
 The TUI is Ink/React under `src/tui/`. `App.tsx` is the tab router; one screen per tab lives in `src/tui/screens/`. Reusable inputs live in `src/tui/components/` (`SelectList` for language/timezone, `DayPicker` for custom days). Settings edits language/timezone via pickers (timezone change rewrites compose + restarts the scheduler); Schedule uses the time builder and auto-restarts on change (plus `[r]`); Home has `[x]` Disconnect WhatsApp (`stopSession`).
 
@@ -78,6 +79,14 @@ After editing the schedule, restart Ofelia to pick up changes:
 ```bash
 docker compose -f ~/.config/waify/docker-compose.yml restart scheduler
 ```
+
+## Releases & versioning
+
+Releases are fully automated by **semantic-release** (`.releaserc.json`, angular preset), run by `.github/workflows/release.yml` on every push to `main`. It computes the next version from commit types, bumps + commits `package.json`, updates `CHANGELOG.md`, tags `vX.Y.Z`, and publishes to npm.
+
+- **Don't hand-edit the version in `package.json`** — the release bot owns it.
+- Commit types drive the bump: `fix:`→patch, `feat:`→minor, `feat!:` or a `BREAKING CHANGE:` footer→major.
+- **Squash-merge caveat:** PRs are squash-merged, so only the squash commit lands on `main`. The squash **title must keep the conventional-commit type** (and the body any `BREAKING CHANGE:` footer), or the release is mis-versioned or skipped.
 
 ## Settings model
 
