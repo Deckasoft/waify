@@ -18,7 +18,6 @@ const migrateLegacyEnv = (): { changed: boolean; config: ReturnType<typeof defau
   const next = ConfigSchema.parse({
     openwaBaseUrl: base.openwaBaseUrl,
     openwaSessionId: legacySessionId ?? base.openwaSessionId,
-    openwaApiKey: base.openwaApiKey,
     recipients,
   })
   const changed = Boolean(legacySessionId || legacyChatId)

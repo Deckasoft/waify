@@ -30,7 +30,6 @@ const isValidTimezone = (tz: string): boolean => supportedTimezones().includes(t
 export const ConfigSchema = z.object({
   openwaBaseUrl: z.string().url().default('http://localhost:2785'),
   openwaSessionId: z.string().nullable().default(null),
-  openwaApiKey: z.string().nullable().default(null),
   recipients: z.array(RecipientSchema).max(1).default([]),
   // Human language name (e.g. 'Spanish') injected into the generation prompt.
   language: z.string().min(1).default('Spanish'),

@@ -455,7 +455,7 @@ export const registerSetup = (program: Command): void => {
           GEMINI_API_KEY: geminiKey.trim(),
           OPENWA_API_KEY: openwaApiKey,
         });
-        saveConfig({ ...loadConfig(), openwaApiKey, recipients: [{ chatId }] });
+        saveConfig({ ...loadConfig(), recipients: [{ chatId }] });
 
         // Step 9 — Create or retrieve existing WhatsApp session
         console.warn('Creating WhatsApp session...');
