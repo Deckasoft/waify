@@ -17,7 +17,12 @@ export const registerSend = (program: Command): void => {
         assertConfigReady(config)
         const prompt = loadPrompt()
         const provider = createGeminiProvider({ apiKey: secrets.GEMINI_API_KEY })
-        const text = await generateMessage({ provider, prompt, language: config.language })
+        const text = await generateMessage({
+          provider,
+          prompt,
+          language: config.language,
+          timezone: config.timezone,
+        })
         await sendMessage({
           baseUrl: config.openwaBaseUrl,
           apiKey: secrets.OPENWA_API_KEY,
