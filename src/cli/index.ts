@@ -9,6 +9,7 @@ import { registerConfig } from './commands/config.ts'
 import { registerPrompt } from './commands/prompt.ts'
 import { registerSchedule } from './commands/schedule.ts'
 import { registerTui } from './commands/tui.ts'
+import { registerDiagnose } from './commands/diagnose.ts'
 import { readWaifyVersion } from '../core/version.ts'
 
 const program = new Command()
@@ -27,6 +28,7 @@ registerConfig(program)
 registerPrompt(program)
 registerSchedule(program)
 registerTui(program)
+registerDiagnose(program)
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err)
